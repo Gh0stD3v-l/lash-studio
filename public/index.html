@@ -542,25 +542,46 @@
                 
                 <div class="review-form">
                     <h4>💬 Deixe sua Avaliação</h4>
-                    <div class="form-group">
-                        <label class="form-label">Seu Nome *</label>
-                        <input type="text" class="form-input" id="reviewName" placeholder="Digite seu nome">
+                    
+                    <!-- Passo 1: Verificar CPF -->
+                    <div id="reviewStep1">
+                        <p style="font-size:0.85rem;color:var(--charcoal-light);margin-bottom:15px">
+                            📋 Digite seu CPF para avaliar ou editar sua avaliação
+                        </p>
+                        <div class="form-group">
+                            <label class="form-label">Seu CPF *</label>
+                            <input type="text" class="form-input" id="reviewCpf" placeholder="000.000.000-00" maxlength="14">
+                        </div>
+                        <div id="cpfError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;display:none"></div>
+                        <button class="btn btn-primary" onclick="checkReviewCpf()">Verificar CPF →</button>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Sua Nota *</label>
-                        <div class="stars-input" id="starsInput">
-                            <button type="button" class="star-btn" data-rating="1">★</button>
-                            <button type="button" class="star-btn" data-rating="2">★</button>
-                            <button type="button" class="star-btn" data-rating="3">★</button>
-                            <button type="button" class="star-btn" data-rating="4">★</button>
-                            <button type="button" class="star-btn" data-rating="5">★</button>
+                    
+                    <!-- Passo 2: Formulário -->
+                    <div id="reviewStep2" style="display:none">
+                        <div id="reviewModeMsg" style="background:var(--cream);padding:15px;border-radius:10px;margin-bottom:15px;text-align:center"></div>
+                        <div class="form-group">
+                            <label class="form-label">Seu Nome *</label>
+                            <input type="text" class="form-input" id="reviewName" placeholder="Digite seu nome">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Sua Nota *</label>
+                            <div class="stars-input" id="starsInput">
+                                <button type="button" class="star-btn" data-rating="1">★</button>
+                                <button type="button" class="star-btn" data-rating="2">★</button>
+                                <button type="button" class="star-btn" data-rating="3">★</button>
+                                <button type="button" class="star-btn" data-rating="4">★</button>
+                                <button type="button" class="star-btn" data-rating="5">★</button>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Comentário (opcional)</label>
+                            <textarea class="form-input" id="reviewComment" rows="3" placeholder="Conte sua experiência..."></textarea>
+                        </div>
+                        <div style="display:flex;gap:10px">
+                            <button class="btn btn-secondary" onclick="resetReviewForm()" style="flex:1">← Voltar</button>
+                            <button class="btn btn-primary" onclick="submitReview()" style="flex:1" id="submitReviewBtn">Enviar ⭐</button>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Comentário (opcional)</label>
-                        <textarea class="form-input" id="reviewComment" rows="3" placeholder="Conte sua experiência..."></textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="submitReview()">Enviar Avaliação ⭐</button>
                 </div>
             </div>
         </div>
@@ -822,6 +843,97 @@
             });
         }
         
+        // Variável para controlar modo edição
+        let reviewMode = 'create'; // 'create' ou 'edit'
+        let reviewCpfSaved = '';
+        
+        // Formatar CPF
+        function formatReviewCpf() {
+            const input = document.getElementById('reviewCpf');
+            let v = input.value.replace(/\D/g, '');
+            if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
+            if (v.length > 7) v = v.slice(0,7) + '.' + v.slice(7);
+            if (v.length > 11) v = v.slice(0,11) + '-' + v.slice(11,13);
+            input.value = v;
+        }
+        document.getElementById('reviewCpf')?.addEventListener('input', formatReviewCpf);
+        
+        // Verificar CPF
+        async function checkReviewCpf() {
+            const cpfInput = document.getElementById('reviewCpf');
+            const cpf = cpfInput.value.replace(/\D/g, '');
+            const errorDiv = document.getElementById('cpfError');
+            
+            if (cpf.length !== 11) {
+                errorDiv.textContent = 'CPF deve ter 11 dígitos';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            try {
+                document.getElementById('loading').style.display = 'flex';
+                
+                const res = await fetch(API + `/api/reviews/check/${cpf}`);
+                const data = await res.json();
+                
+                if (res.status === 400) {
+                    errorDiv.textContent = data.error || 'CPF inválido';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                errorDiv.style.display = 'none';
+                reviewCpfSaved = cpf;
+                
+                // Mostrar passo 2
+                document.getElementById('reviewStep1').style.display = 'none';
+                document.getElementById('reviewStep2').style.display = 'block';
+                
+                if (data.hasReview) {
+                    // Modo edição
+                    reviewMode = 'edit';
+                    document.getElementById('reviewModeMsg').innerHTML = `
+                        <div style="color:var(--gold)">✏️ Você já tem uma avaliação</div>
+                        <div style="font-size:0.85rem;color:var(--charcoal-light);margin-top:5px">Altere os dados abaixo para atualizar</div>
+                    `;
+                    document.getElementById('submitReviewBtn').textContent = 'Atualizar ⭐';
+                    
+                    // Preencher dados existentes
+                    document.getElementById('reviewName').value = data.review.client_name;
+                    document.getElementById('reviewComment').value = data.review.comment || '';
+                    selectedRating = data.review.rating;
+                    document.querySelectorAll('.star-btn').forEach((b, i) => {
+                        b.classList.toggle('active', i < selectedRating);
+                    });
+                } else {
+                    // Modo criação
+                    reviewMode = 'create';
+                    document.getElementById('reviewModeMsg').innerHTML = `
+                        <div style="color:var(--success)">✅ CPF verificado!</div>
+                        <div style="font-size:0.85rem;color:var(--charcoal-light);margin-top:5px">Preencha sua avaliação</div>
+                    `;
+                    document.getElementById('submitReviewBtn').textContent = 'Enviar ⭐';
+                }
+            } catch (err) {
+                errorDiv.textContent = 'Erro ao verificar CPF. Tente novamente.';
+                errorDiv.style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        // Voltar para passo 1
+        function resetReviewForm() {
+            document.getElementById('reviewStep1').style.display = 'block';
+            document.getElementById('reviewStep2').style.display = 'none';
+            document.getElementById('reviewName').value = '';
+            document.getElementById('reviewComment').value = '';
+            selectedRating = 0;
+            document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+            reviewMode = 'create';
+            reviewCpfSaved = '';
+        }
+        
         async function submitReview() {
             const name = document.getElementById('reviewName').value.trim();
             const comment = document.getElementById('reviewComment').value.trim();
@@ -838,25 +950,32 @@
             try {
                 document.getElementById('loading').style.display = 'flex';
                 
-                const res = await fetch(API + '/api/reviews', {
-                    method: 'POST',
+                const url = reviewMode === 'edit' 
+                    ? API + `/api/reviews/${reviewCpfSaved}`
+                    : API + '/api/reviews';
+                
+                const method = reviewMode === 'edit' ? 'PUT' : 'POST';
+                
+                const res = await fetch(url, {
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         client_name: name,
+                        client_cpf: reviewCpfSaved,
                         rating: selectedRating,
                         comment: comment
                     })
                 });
                 
+                const data = await res.json();
+                
                 if (res.ok) {
-                    alert('Obrigada pela sua avaliação! 💕');
-                    document.getElementById('reviewName').value = '';
-                    document.getElementById('reviewComment').value = '';
-                    selectedRating = 0;
-                    document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+                    alert(reviewMode === 'edit' ? 'Avaliação atualizada! 💕' : 'Obrigada pela sua avaliação! 💕');
+                    resetReviewForm();
+                    document.getElementById('reviewCpf').value = '';
                     await loadReviews();
                 } else {
-                    alert('Erro ao enviar avaliação. Tente novamente.');
+                    alert(data.error || 'Erro ao enviar avaliação. Tente novamente.');
                 }
             } catch (err) {
                 alert('Erro de conexão. Tente novamente.');
