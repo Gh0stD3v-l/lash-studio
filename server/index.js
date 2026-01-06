@@ -388,6 +388,55 @@ app.delete('/api/admin/clients/:id', async (req, res) => {
   }
 });
 
+// Buscar histórico do cliente
+app.get('/api/admin/clients/:id/history', async (req, res) => {
+  try {
+    const clientId = req.params.id;
+    
+    // Dados do cliente
+    const client = await pool.query('SELECT * FROM clients WHERE id = $1', [clientId]);
+    
+    // Vendas do cliente
+    const salesResult = await pool.query(`
+      SELECT sa.*, s.name as service_name
+      FROM sales sa
+      LEFT JOIN services s ON sa.service_id = s.id
+      WHERE sa.client_id = $1
+      ORDER BY sa.sale_date DESC
+    `, [clientId]);
+    
+    // Agendamentos manuais do cliente
+    const appointmentsResult = await pool.query(`
+      SELECT a.*, s.name as service_name
+      FROM appointments a
+      LEFT JOIN services s ON a.service_id = s.id
+      WHERE a.client_id = $1
+      ORDER BY a.appointment_date DESC
+    `, [clientId]);
+    
+    // Estatísticas
+    const totalSpent = await pool.query(
+      'SELECT COALESCE(SUM(value), 0) as total FROM sales WHERE client_id = $1',
+      [clientId]
+    );
+    
+    const visitCount = await pool.query(
+      'SELECT COUNT(*) FROM sales WHERE client_id = $1',
+      [clientId]
+    );
+    
+    res.json({
+      client: client.rows[0],
+      sales: salesResult.rows,
+      appointments: appointmentsResult.rows,
+      totalSpent: parseFloat(totalSpent.rows[0].total),
+      visitCount: parseInt(visitCount.rows[0].count)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==================== ROTAS - AGENDAMENTOS MANUAIS ====================
 
 app.get('/api/admin/appointments', async (req, res) => {
