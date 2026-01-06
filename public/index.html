@@ -593,7 +593,11 @@
         }
         
         function renderTimeSlots(availableSlots) {
+            // ===== 🕐 HORÁRIOS VISÍVEIS NO SITE =====
+            // Edite aqui os horários que aparecem para o cliente
+            // IMPORTANTE: Deve ser igual aos horários no servidor (server/index.js)
             const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+            // ==========================================
             
             document.getElementById('timeGrid').innerHTML = allSlots.map(slot => {
                 const available = availableSlots.includes(slot);
