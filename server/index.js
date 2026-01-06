@@ -187,10 +187,10 @@ app.get('/api/services', async (req, res) => {
   }
 });
 
-// Listar todos os serviços (admin)
+// Listar todos os serviços (admin) - só ativos
 app.get('/api/admin/services', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM services ORDER BY name');
+    const result = await pool.query('SELECT * FROM services WHERE active = true ORDER BY name');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
