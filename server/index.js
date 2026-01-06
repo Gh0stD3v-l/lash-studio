@@ -155,12 +155,18 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS reviews (
         id SERIAL PRIMARY KEY,
         client_name VARCHAR(255) NOT NULL,
+        client_cpf VARCHAR(14),
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
         approved BOOLEAN DEFAULT true,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Adicionar coluna client_cpf se não existir (para bancos já criados)
+    await pool.query(`
+      ALTER TABLE reviews ADD COLUMN IF NOT EXISTS client_cpf VARCHAR(14)
+    `).catch(() => {});
 
     // Inserir serviço padrão se não existir
     const services = await pool.query('SELECT COUNT(*) FROM services');
@@ -257,7 +263,21 @@ app.get('/api/available-slots', async (req, res) => {
     );
     
     const bookedTimes = booked.rows.map(r => r.appointment_time.slice(0, 5));
-    const available = allSlots.filter(slot => !bookedTimes.includes(slot));
+    let available = allSlots.filter(slot => !bookedTimes.includes(slot));
+    
+    // Se for hoje, filtrar horários que já passaram
+    const today = new Date().toISOString().split('T')[0];
+    if (date === today) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      available = available.filter(slot => {
+        const [h, m] = slot.split(':').map(Number);
+        // Só mostra horários que ainda não passaram (com 30min de margem)
+        return h > currentHour || (h === currentHour && m > currentMinute + 30);
+      });
+    }
     
     res.json(available);
   } catch (err) {
@@ -625,11 +645,32 @@ app.get('/api/admin/stats', async (req, res) => {
 
 // ==================== ROTAS - AVALIAÇÕES ====================
 
+// Validar CPF
+function isValidCPF(cpf) {
+  cpf = cpf.replace(/[^\d]/g, '');
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1+$/.test(cpf)) return false; // CPFs com todos dígitos iguais
+  
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+  let d1 = (sum * 10) % 11;
+  if (d1 === 10) d1 = 0;
+  if (d1 !== parseInt(cpf[9])) return false;
+  
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+  let d2 = (sum * 10) % 11;
+  if (d2 === 10) d2 = 0;
+  if (d2 !== parseInt(cpf[10])) return false;
+  
+  return true;
+}
+
 // Listar avaliações (público)
 app.get('/api/reviews', async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM reviews WHERE approved = true ORDER BY created_at DESC LIMIT 50'
+      'SELECT id, client_name, rating, comment, created_at FROM reviews WHERE approved = true ORDER BY created_at DESC LIMIT 50'
     );
     res.json(result.rows);
   } catch (err) {
@@ -637,19 +678,80 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
-// Criar avaliação (público)
-app.post('/api/reviews', async (req, res) => {
+// Verificar se CPF já avaliou (retorna a avaliação se existir)
+app.get('/api/reviews/check/:cpf', async (req, res) => {
   try {
-    const { client_name, rating, comment } = req.body;
+    const cpf = req.params.cpf.replace(/[^\d]/g, '');
     
-    if (!client_name || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Nome e avaliação são obrigatórios' });
+    if (!isValidCPF(cpf)) {
+      return res.status(400).json({ error: 'CPF inválido' });
     }
     
     const result = await pool.query(
-      'INSERT INTO reviews (client_name, rating, comment) VALUES ($1, $2, $3) RETURNING *',
-      [client_name, rating, comment || '']
+      'SELECT * FROM reviews WHERE client_cpf = $1',
+      [cpf]
     );
+    
+    if (result.rows.length > 0) {
+      res.json({ hasReview: true, review: result.rows[0] });
+    } else {
+      res.json({ hasReview: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Criar avaliação (público) - 1 por CPF
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { client_name, client_cpf, rating, comment } = req.body;
+    
+    if (!client_name || !client_cpf || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Nome, CPF e avaliação são obrigatórios' });
+    }
+    
+    const cpf = client_cpf.replace(/[^\d]/g, '');
+    
+    if (!isValidCPF(cpf)) {
+      return res.status(400).json({ error: 'CPF inválido' });
+    }
+    
+    // Verificar se já existe avaliação desse CPF
+    const existing = await pool.query('SELECT id FROM reviews WHERE client_cpf = $1', [cpf]);
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'Você já fez uma avaliação. Use a opção de editar.' });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO reviews (client_name, client_cpf, rating, comment) VALUES ($1, $2, $3, $4) RETURNING *',
+      [client_name, cpf, rating, comment || '']
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Editar avaliação existente
+app.put('/api/reviews/:cpf', async (req, res) => {
+  try {
+    const cpf = req.params.cpf.replace(/[^\d]/g, '');
+    const { client_name, rating, comment } = req.body;
+    
+    if (!isValidCPF(cpf)) {
+      return res.status(400).json({ error: 'CPF inválido' });
+    }
+    
+    const result = await pool.query(
+      'UPDATE reviews SET client_name = $1, rating = $2, comment = $3, created_at = CURRENT_TIMESTAMP WHERE client_cpf = $4 RETURNING *',
+      [client_name, rating, comment || '', cpf]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Avaliação não encontrada' });
+    }
+    
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
