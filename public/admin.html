@@ -254,6 +254,37 @@
             transition: all 0.3s ease;
         }
         .btn-logout:hover { background: var(--danger); color: white; }
+        
+        /* Animação pulsante para lembretes */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(199, 93, 93, 0.7); }
+            50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(199, 93, 93, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(199, 93, 93, 0); }
+        }
+        .reminder-pulse {
+            animation: pulse 1.5s infinite;
+            background: var(--danger) !important;
+        }
+        .reminder-card {
+            background: linear-gradient(135deg, #fff5f5 0%, #fff 100%);
+            border: 2px solid var(--danger);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+            animation: pulse 2s infinite;
+            position: relative;
+        }
+        .reminder-card::before {
+            content: '🔔';
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            font-size: 1.5rem;
+            animation: pulse 1s infinite;
+        }
+        .reminder-urgent {
+            background: linear-gradient(135deg, #ffe5e5 0%, #fff 100%);
+        }
     </style>
 </head>
 <body>
@@ -285,6 +316,7 @@
             </div>
             <nav class="nav-menu">
                 <div class="nav-item active" data-page="dashboard"><i>📊</i><span>Dashboard</span></div>
+                <div class="nav-item" data-page="reminders"><i>🔔</i><span>Lembretes</span><span class="nav-badge reminder-pulse" id="reminderBadge" style="display:none">0</span></div>
                 <div class="nav-item" data-page="online"><i>🌐</i><span>Agend. Online</span><span class="nav-badge" id="pendingBadge">0</span></div>
                 <div class="nav-item" data-page="clients"><i>👩</i><span>Clientes</span></div>
                 <div class="nav-item" data-page="schedule"><i>📅</i><span>Agenda</span></div>
@@ -319,6 +351,26 @@
                     <div class="table-container">
                         <table><thead><tr><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Data</th></tr></thead><tbody id="recentSales"></tbody></table>
                     </div>
+                </div>
+            </section>
+            
+            <!-- Lembretes -->
+            <section id="reminders" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>🔔 Lembretes</h2><p>Clientes para enviar lembrete (atendimento AMANHÃ)</p></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">📱 Enviar Lembrete pelo WhatsApp</h3>
+                        <span style="font-size:0.8rem;color:var(--charcoal-light)">Clique no botão para abrir o WhatsApp com a mensagem pronta</span>
+                    </div>
+                    <div id="remindersGrid"></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">✅ Lembretes Já Enviados Hoje</h3></div>
+                    <div id="remindersSentGrid"></div>
                 </div>
             </section>
             
@@ -812,6 +864,16 @@
         }
         
         function renderReminders(reminders) {
+            // Atualizar badge
+            const reminderBadge = document.getElementById('reminderBadge');
+            if (reminders.length > 0) {
+                reminderBadge.textContent = reminders.length;
+                reminderBadge.style.display = 'inline';
+            } else {
+                reminderBadge.style.display = 'none';
+            }
+            
+            // Alerta no dashboard
             if (reminders.length > 0) {
                 document.getElementById('reminderAlert').style.display = 'flex';
                 document.getElementById('reminderAlert').innerHTML = `
@@ -824,6 +886,72 @@
             } else {
                 document.getElementById('reminderAlert').style.display = 'none';
                 document.getElementById('reminderSection').innerHTML = '';
+            }
+            
+            // Grid de lembretes na página dedicada
+            const remindersGrid = document.getElementById('remindersGrid');
+            if (remindersGrid) {
+                if (reminders.length > 0) {
+                    remindersGrid.innerHTML = reminders.map(r => `
+                        <div class="reminder-card">
+                            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                                <div>
+                                    <h4 style="font-size:1.1rem;margin-bottom:5px">${r.client_name}</h4>
+                                    <p style="color:var(--charcoal-light);font-size:0.85rem">📞 ${r.client_phone}</p>
+                                    <p style="color:var(--charcoal-light);font-size:0.85rem">💅 ${r.service_name || 'Serviço'}</p>
+                                </div>
+                                <div style="text-align:right">
+                                    <div style="font-size:1.3rem;font-weight:700;color:var(--danger)">AMANHÃ</div>
+                                    <div style="font-size:1.5rem;font-weight:700">${r.appointment_time?.slice(0,5)}</div>
+                                </div>
+                            </div>
+                            <div style="margin-top:15px;display:flex;gap:10px">
+                                <button class="btn btn-whatsapp" style="flex:1" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify(r).replace(/"/g, '&quot;')})">
+                                    📱 Enviar Lembrete no WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    remindersGrid.innerHTML = '<div style="text-align:center;padding:40px;color:#999"><div style="font-size:3rem;margin-bottom:15px">✅</div><h3>Nenhum lembrete pendente!</h3><p>Todos os clientes de amanhã já foram avisados</p></div>';
+                }
+            }
+            
+            // Grid de lembretes já enviados
+            renderRemindersSent();
+        }
+        
+        async function renderRemindersSent() {
+            const grid = document.getElementById('remindersSentGrid');
+            if (!grid) return;
+            
+            try {
+                // Buscar agendamentos de amanhã com lembrete já enviado
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const tomorrowStr = tomorrow.toISOString().split('T')[0];
+                
+                const sent = onlineAppts.filter(a => 
+                    a.appointment_date?.split('T')[0] === tomorrowStr && 
+                    a.status === 'confirmado' && 
+                    a.reminder_sent === true
+                );
+                
+                if (sent.length > 0) {
+                    grid.innerHTML = sent.map(r => `
+                        <div style="background:var(--cream);padding:15px;border-radius:12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+                            <div>
+                                <strong>${r.client_name}</strong>
+                                <span style="color:var(--charcoal-light);margin-left:10px">${r.appointment_time?.slice(0,5)}</span>
+                            </div>
+                            <span class="badge badge-success">✅ Enviado</span>
+                        </div>
+                    `).join('');
+                } else {
+                    grid.innerHTML = '<p style="text-align:center;padding:20px;color:#999">Nenhum lembrete enviado ainda hoje</p>';
+                }
+            } catch (err) {
+                console.error(err);
             }
         }
         
