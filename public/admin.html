@@ -358,6 +358,10 @@
             <section id="reminders" class="page-section">
                 <div class="header">
                     <div class="header-title"><h2>🔔 Lembretes</h2><p>Clientes para enviar lembrete (atendimento AMANHÃ)</p></div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="manualRefresh()">🔄 Atualizar</button>
+                        <span style="font-size:0.8rem;color:var(--charcoal-light);padding:10px">Próxima atualização: <strong id="refreshCountdown">30</strong>s</span>
+                    </div>
                 </div>
                 
                 <div class="card">
@@ -378,6 +382,10 @@
             <section id="online" class="page-section">
                 <div class="header">
                     <div class="header-title"><h2>🌐 Agendamentos Online</h2><p>Agendamentos feitos pelo site</p></div>
+                    <div class="header-actions">
+                        <button class="btn btn-secondary" onclick="manualRefresh()">🔄 Atualizar</button>
+                        <span style="font-size:0.8rem;color:var(--charcoal-light);padding:10px">Próxima: <strong id="refreshCountdown2">30</strong>s</span>
+                    </div>
                 </div>
                 
                 <div id="reminderSection"></div>
@@ -646,6 +654,8 @@
         }
         
         // ===== INIT =====
+        let refreshCountdown = 30; // Variável global
+        
         async function init() {
             await Promise.all([loadStats(), loadClients(), loadServices(), loadOnlineAppointments(), loadAppointments(), loadSales(), loadProducts(), loadReminders()]);
             updatePendingBadge();
@@ -656,7 +666,38 @@
                 await loadReminders();
                 await loadStats();
                 updatePendingBadge();
+                refreshCountdown = 30;
             }, 30000);
+            
+            // Contador visual
+            setInterval(() => {
+                refreshCountdown--;
+                if (refreshCountdown < 0) refreshCountdown = 30;
+                const el = document.getElementById('refreshCountdown');
+                if (el) el.textContent = refreshCountdown;
+                const el2 = document.getElementById('refreshCountdown2');
+                if (el2) el2.textContent = refreshCountdown;
+            }, 1000);
+        }
+        
+        // Atualizar manual
+        async function manualRefresh() {
+            const btn = event?.target;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '⏳ Atualizando...';
+            }
+            try {
+                await loadOnlineAppointments();
+                await loadReminders();
+                await loadStats();
+                updatePendingBadge();
+                refreshCountdown = 30; // Reseta o contador
+            } catch (err) { console.error(err); }
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '🔄 Atualizar';
+            }
         }
         
         // Verificar auth ao carregar
@@ -670,6 +711,15 @@
             n.classList.add('active');
             document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
             document.getElementById(n.dataset.page).classList.add('active');
+            
+            // Limpar badge quando clicar na aba (igual WhatsApp)
+            const page = n.dataset.page;
+            if (page === 'online') {
+                document.getElementById('pendingBadge').style.display = 'none';
+            }
+            if (page === 'reminders') {
+                document.getElementById('reminderBadge').style.display = 'none';
+            }
         }));
         
         // ===== MODAL =====
@@ -1054,7 +1104,10 @@
             sendReminder(appt);
             try {
                 await fetch(API + `/api/admin/online-appointments/${id}/reminder-sent`, { method: 'PUT' });
+                // Recarregar tudo após enviar lembrete
+                await loadOnlineAppointments();
                 await loadReminders();
+                await loadStats();
             } catch (err) { console.error(err); }
         }
         
