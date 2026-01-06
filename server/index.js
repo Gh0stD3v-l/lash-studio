@@ -228,8 +228,12 @@ app.get('/api/available-slots', async (req, res) => {
   try {
     const { date, service_id } = req.query;
     
-    // Horários de funcionamento (9h às 19h)
+    // ===== 🕐 HORÁRIOS DE FUNCIONAMENTO =====
+    // Edite aqui os horários disponíveis para agendamento
+    // Formato: 'HH:MM' (24 horas)
+    // Exemplo: ['08:00', '09:00', '10:00'] = 8h, 9h e 10h
     const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    // =========================================
     
     // Buscar horários já agendados
     const booked = await pool.query(
