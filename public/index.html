@@ -350,6 +350,151 @@
         }
         .footer a { color: var(--rose-gold); text-decoration: none; }
         
+        /* Quick Actions */
+        .quick-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .quick-btn {
+            flex: 1;
+            padding: 15px;
+            background: var(--white);
+            border: 2px solid var(--cream-dark);
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Montserrat', sans-serif;
+        }
+        .quick-btn:hover {
+            border-color: var(--rose-gold);
+            transform: translateY(-2px);
+        }
+        .quick-btn.active {
+            border-color: var(--rose-gold);
+            background: rgba(183, 110, 121, 0.1);
+        }
+        .quick-btn-icon { font-size: 1.5rem; margin-bottom: 5px; display: block; }
+        .quick-btn-text { font-size: 0.75rem; font-weight: 600; color: var(--charcoal); }
+        
+        /* Today Slots */
+        .today-slots {
+            display: none;
+            margin-bottom: 25px;
+        }
+        .today-slots.active { display: block; }
+        .today-slots-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-top: 15px;
+        }
+        .today-slot {
+            padding: 12px 8px;
+            background: var(--success);
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .today-slot.past {
+            background: var(--cream-dark);
+            color: var(--charcoal-light);
+            text-decoration: line-through;
+        }
+        .today-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 30px;
+            color: var(--charcoal-light);
+        }
+        
+        /* Reviews Section */
+        .reviews-section {
+            display: none;
+            margin-bottom: 25px;
+        }
+        .reviews-section.active { display: block; }
+        .review-card {
+            background: var(--cream);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .review-name {
+            font-weight: 600;
+            color: var(--charcoal);
+        }
+        .review-stars {
+            color: var(--gold);
+            font-size: 1.1rem;
+        }
+        .review-comment {
+            color: var(--charcoal-light);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .review-date {
+            font-size: 0.75rem;
+            color: var(--charcoal-light);
+            margin-top: 10px;
+        }
+        .review-form {
+            background: var(--white);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 2px solid var(--cream-dark);
+        }
+        .review-form h4 {
+            margin-bottom: 15px;
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 1.2rem;
+        }
+        .stars-input {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .star-btn {
+            font-size: 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--cream-dark);
+            transition: all 0.2s ease;
+        }
+        .star-btn:hover, .star-btn.active {
+            color: var(--gold);
+            transform: scale(1.2);
+        }
+        .avg-rating {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .avg-rating-value {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+        .avg-rating-stars {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin: 5px 0;
+        }
+        .avg-rating-count {
+            font-size: 0.85rem;
+            color: var(--charcoal-light);
+        }
+        
         /* Responsive */
         @media (max-width: 600px) {
             .header h1 { font-size: 2rem; }
@@ -368,6 +513,58 @@
     </header>
     
     <main class="container">
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <div class="quick-btn" onclick="toggleTodaySlots()">
+                <span class="quick-btn-icon">🕐</span>
+                <span class="quick-btn-text">Horários Hoje</span>
+            </div>
+            <div class="quick-btn" onclick="toggleReviews()">
+                <span class="quick-btn-icon">⭐</span>
+                <span class="quick-btn-text">Avaliações</span>
+            </div>
+        </div>
+        
+        <!-- Today Slots -->
+        <div class="today-slots" id="todaySlots">
+            <div class="card">
+                <h2 class="card-title">🕐 Horários Disponíveis Hoje</h2>
+                <div id="todaySlotsContent">Carregando...</div>
+            </div>
+        </div>
+        
+        <!-- Reviews Section -->
+        <div class="reviews-section" id="reviewsSection">
+            <div class="card">
+                <h2 class="card-title">⭐ Avaliações das Clientes</h2>
+                <div class="avg-rating" id="avgRating"></div>
+                <div id="reviewsList"></div>
+                
+                <div class="review-form">
+                    <h4>💬 Deixe sua Avaliação</h4>
+                    <div class="form-group">
+                        <label class="form-label">Seu Nome *</label>
+                        <input type="text" class="form-input" id="reviewName" placeholder="Digite seu nome">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sua Nota *</label>
+                        <div class="stars-input" id="starsInput">
+                            <button type="button" class="star-btn" data-rating="1">★</button>
+                            <button type="button" class="star-btn" data-rating="2">★</button>
+                            <button type="button" class="star-btn" data-rating="3">★</button>
+                            <button type="button" class="star-btn" data-rating="4">★</button>
+                            <button type="button" class="star-btn" data-rating="5">★</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Comentário (opcional)</label>
+                        <textarea class="form-input" id="reviewComment" rows="3" placeholder="Conte sua experiência..."></textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="submitReview()">Enviar Avaliação ⭐</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Steps -->
         <div class="steps">
             <div class="step active" data-step="1">1</div>
@@ -490,11 +687,182 @@
         
         // Dados do cliente
         const clientData = { name: '', cpf: '', phone: '', email: '' };
+        let selectedRating = 0;
+        let reviews = [];
         
         // ===== INIT =====
         async function init() {
             await loadServices();
+            await loadReviews();
             renderCalendar();
+            setupStars();
+        }
+        
+        // ===== HORÁRIOS DE HOJE =====
+        function toggleTodaySlots() {
+            const section = document.getElementById('todaySlots');
+            const reviewsSection = document.getElementById('reviewsSection');
+            reviewsSection.classList.remove('active');
+            
+            if (section.classList.contains('active')) {
+                section.classList.remove('active');
+            } else {
+                section.classList.add('active');
+                loadTodaySlots();
+            }
+        }
+        
+        async function loadTodaySlots() {
+            const content = document.getElementById('todaySlotsContent');
+            content.innerHTML = '<p style="text-align:center;color:var(--charcoal-light)">Carregando...</p>';
+            
+            try {
+                const res = await fetch(API + '/api/today-slots');
+                const data = await res.json();
+                
+                const today = new Date();
+                const dateStr = today.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+                
+                if (data.slots.length > 0) {
+                    content.innerHTML = `
+                        <p style="text-align:center;margin-bottom:15px;color:var(--charcoal-light)">
+                            📅 ${dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}<br>
+                            <strong style="color:var(--success)">${data.slots.length} horários disponíveis</strong>
+                        </p>
+                        <div class="today-slots-grid">
+                            ${data.slots.map(slot => `<div class="today-slot">${slot}</div>`).join('')}
+                        </div>
+                        <p style="text-align:center;margin-top:15px;font-size:0.85rem;color:var(--charcoal-light)">
+                            Role para baixo para agendar! 👇
+                        </p>
+                    `;
+                } else {
+                    content.innerHTML = `
+                        <p style="text-align:center;color:var(--charcoal-light)">
+                            📅 ${dateStr.charAt(0).toUpperCase() + dateStr.slice(1)}<br><br>
+                            <strong style="color:var(--danger)">😔 Nenhum horário disponível hoje</strong><br><br>
+                            <span>Verifique os próximos dias no agendamento abaixo!</span>
+                        </p>
+                    `;
+                }
+            } catch (err) {
+                content.innerHTML = '<p style="text-align:center;color:var(--danger)">Erro ao carregar horários</p>';
+            }
+        }
+        
+        // ===== AVALIAÇÕES =====
+        function toggleReviews() {
+            const section = document.getElementById('reviewsSection');
+            const todaySection = document.getElementById('todaySlots');
+            todaySection.classList.remove('active');
+            
+            if (section.classList.contains('active')) {
+                section.classList.remove('active');
+            } else {
+                section.classList.add('active');
+            }
+        }
+        
+        async function loadReviews() {
+            try {
+                const res = await fetch(API + '/api/reviews');
+                reviews = await res.json();
+                renderReviews();
+            } catch (err) {
+                console.error('Erro ao carregar avaliações:', err);
+            }
+        }
+        
+        function renderReviews() {
+            const list = document.getElementById('reviewsList');
+            const avgDiv = document.getElementById('avgRating');
+            
+            if (reviews.length > 0) {
+                const avgRating = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+                const fullStars = '★'.repeat(Math.round(avgRating));
+                const emptyStars = '☆'.repeat(5 - Math.round(avgRating));
+                
+                avgDiv.innerHTML = `
+                    <div class="avg-rating-value">${avgRating.toFixed(1)}</div>
+                    <div class="avg-rating-stars">${fullStars}${emptyStars}</div>
+                    <div class="avg-rating-count">${reviews.length} avaliação${reviews.length > 1 ? 's' : ''}</div>
+                `;
+                
+                list.innerHTML = reviews.slice(0, 10).map(r => {
+                    const stars = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+                    const date = new Date(r.created_at).toLocaleDateString('pt-BR');
+                    return `
+                        <div class="review-card">
+                            <div class="review-header">
+                                <span class="review-name">${r.client_name}</span>
+                                <span class="review-stars">${stars}</span>
+                            </div>
+                            ${r.comment ? `<p class="review-comment">"${r.comment}"</p>` : ''}
+                            <div class="review-date">${date}</div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                avgDiv.innerHTML = `
+                    <div class="avg-rating-stars">☆☆☆☆☆</div>
+                    <div class="avg-rating-count">Seja a primeira a avaliar!</div>
+                `;
+                list.innerHTML = '<p style="text-align:center;color:var(--charcoal-light);padding:20px">Nenhuma avaliação ainda</p>';
+            }
+        }
+        
+        function setupStars() {
+            document.querySelectorAll('.star-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedRating = parseInt(btn.dataset.rating);
+                    document.querySelectorAll('.star-btn').forEach((b, i) => {
+                        b.classList.toggle('active', i < selectedRating);
+                    });
+                });
+            });
+        }
+        
+        async function submitReview() {
+            const name = document.getElementById('reviewName').value.trim();
+            const comment = document.getElementById('reviewComment').value.trim();
+            
+            if (!name) {
+                alert('Por favor, digite seu nome!');
+                return;
+            }
+            if (selectedRating === 0) {
+                alert('Por favor, selecione uma nota (estrelas)!');
+                return;
+            }
+            
+            try {
+                document.getElementById('loading').style.display = 'flex';
+                
+                const res = await fetch(API + '/api/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_name: name,
+                        rating: selectedRating,
+                        comment: comment
+                    })
+                });
+                
+                if (res.ok) {
+                    alert('Obrigada pela sua avaliação! 💕');
+                    document.getElementById('reviewName').value = '';
+                    document.getElementById('reviewComment').value = '';
+                    selectedRating = 0;
+                    document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
+                    await loadReviews();
+                } else {
+                    alert('Erro ao enviar avaliação. Tente novamente.');
+                }
+            } catch (err) {
+                alert('Erro de conexão. Tente novamente.');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
         }
         
         // ===== SERVIÇOS =====
