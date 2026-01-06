@@ -583,6 +583,14 @@
         async function init() {
             await Promise.all([loadStats(), loadClients(), loadServices(), loadOnlineAppointments(), loadAppointments(), loadSales(), loadProducts(), loadReminders()]);
             updatePendingBadge();
+            
+            // Auto-refresh a cada 30 segundos
+            setInterval(async () => {
+                await loadOnlineAppointments();
+                await loadReminders();
+                await loadStats();
+                updatePendingBadge();
+            }, 30000);
         }
         
         // Verificar auth ao carregar
@@ -1007,7 +1015,17 @@
         });
         
         // ===== UTILS =====
-        function formatDate(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '-'; }
+        function formatDate(d) { 
+            if (!d) return '-';
+            try {
+                // Se for string ISO com timezone, pega só a parte da data
+                const dateStr = d.split('T')[0];
+                const [year, month, day] = dateStr.split('-');
+                return `${day}/${month}/${year}`;
+            } catch (e) {
+                return '-';
+            }
+        }
     </script>
 </body>
 </html>
