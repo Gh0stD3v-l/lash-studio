@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lash Studio - Painel Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --rose-gold: #B76E79;
+            --rose-gold-light: #D4A5A5;
+            --rose-gold-dark: #8B5A5A;
+            --gold: #C9A962;
+            --cream: #FDF8F5;
+            --cream-dark: #F5EDE8;
+            --charcoal: #2D2D2D;
+            --charcoal-light: #4A4A4A;
+            --white: #FFFFFF;
+            --success: #7FB069;
+            --warning: #E8B739;
+            --danger: #C75D5D;
+            --whatsapp: #25D366;
+            --shadow: 0 4px 20px rgba(183, 110, 121, 0.15);
+            --shadow-hover: 0 8px 30px rgba(183, 110, 121, 0.25);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Montserrat', sans-serif; background: var(--cream); color: var(--charcoal); min-height: 100vh; }
+        
+        .app-container { display: flex; min-height: 100vh; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, var(--charcoal) 0%, #1a1a1a 100%);
+            padding: 25px 15px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+        .logo { text-align: center; margin-bottom: 40px; padding-bottom: 25px; border-bottom: 1px solid rgba(183, 110, 121, 0.3); }
+        .logo h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; color: var(--rose-gold-light); letter-spacing: 2px; margin-bottom: 5px; }
+        .logo span { font-size: 0.65rem; color: var(--gold); letter-spacing: 3px; }
+        .logo-icon { font-size: 2rem; margin-bottom: 8px; display: block; }
+        
+        .nav-menu { flex: 1; }
+        .nav-item {
+            display: flex; align-items: center; padding: 14px 18px; margin-bottom: 6px;
+            border-radius: 10px; cursor: pointer; transition: all 0.3s ease;
+            color: rgba(255, 255, 255, 0.7); font-size: 0.85rem; font-weight: 500;
+        }
+        .nav-item:hover { background: rgba(183, 110, 121, 0.15); color: var(--rose-gold-light); }
+        .nav-item.active { background: linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%); color: var(--white); }
+        .nav-item i { width: 22px; margin-right: 12px; font-size: 1rem; }
+        .nav-badge { background: var(--danger); color: white; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; margin-left: auto; }
+        
+        .sidebar-footer { padding-top: 15px; border-top: 1px solid rgba(183, 110, 121, 0.2); text-align: center; }
+        .sidebar-footer a { color: var(--rose-gold-light); text-decoration: none; font-size: 0.75rem; }
+        
+        /* Main */
+        .main-content { flex: 1; margin-left: 260px; padding: 25px 30px; min-height: 100vh; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid rgba(183, 110, 121, 0.15); flex-wrap: wrap; gap: 15px; }
+        .header-title h2 { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; color: var(--charcoal); margin-bottom: 5px; }
+        .header-title p { font-size: 0.85rem; color: var(--charcoal-light); }
+        .header-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+        
+        /* Buttons */
+        .btn { padding: 10px 20px; border: none; border-radius: 10px; font-family: 'Montserrat', sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%); color: var(--white); }
+        .btn-primary:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+        .btn-secondary { background: var(--white); color: var(--charcoal); border: 1px solid var(--cream-dark); }
+        .btn-secondary:hover { border-color: var(--rose-gold); color: var(--rose-gold); }
+        .btn-success { background: linear-gradient(135deg, var(--success) 0%, #5a9a4a 100%); color: white; }
+        .btn-danger { background: linear-gradient(135deg, var(--danger) 0%, #a84a4a 100%); color: white; }
+        .btn-whatsapp { background: linear-gradient(135deg, var(--whatsapp) 0%, #128C7E 100%); color: white; }
+        .btn-warning { background: linear-gradient(135deg, var(--warning) 0%, #c99a2e 100%); color: white; }
+        .btn-small { padding: 6px 12px; font-size: 0.75rem; }
+        
+        /* Cards */
+        .card { background: var(--white); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid var(--cream-dark); flex-wrap: wrap; gap: 10px; }
+        .card-title { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--charcoal); }
+        
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 25px; }
+        .stat-card { background: var(--white); border-radius: 18px; padding: 22px; box-shadow: var(--shadow); position: relative; overflow: hidden; }
+        .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(180deg, var(--rose-gold) 0%, var(--gold) 100%); }
+        .stat-icon { width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 12px; }
+        .stat-icon.rose { background: rgba(183, 110, 121, 0.15); color: var(--rose-gold); }
+        .stat-icon.gold { background: rgba(201, 169, 98, 0.15); color: var(--gold); }
+        .stat-icon.green { background: rgba(127, 176, 105, 0.15); color: var(--success); }
+        .stat-icon.orange { background: rgba(232, 183, 57, 0.15); color: var(--warning); }
+        .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--charcoal); margin-bottom: 4px; }
+        .stat-label { font-size: 0.8rem; color: var(--charcoal-light); }
+        
+        /* Tables */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--cream-dark); }
+        th { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--charcoal-light); background: var(--cream); }
+        td { font-size: 0.85rem; }
+        tr:hover td { background: rgba(183, 110, 121, 0.03); }
+        
+        /* Badges */
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 15px; font-size: 0.7rem; font-weight: 600; }
+        .badge-success { background: rgba(127, 176, 105, 0.15); color: var(--success); }
+        .badge-warning { background: rgba(232, 183, 57, 0.15); color: var(--warning); }
+        .badge-danger { background: rgba(199, 93, 93, 0.15); color: var(--danger); }
+        .badge-info { background: rgba(183, 110, 121, 0.15); color: var(--rose-gold); }
+        
+        /* Action buttons */
+        .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+        .action-btn { width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer; font-size: 0.8rem; transition: all 0.2s ease; }
+        .action-btn:hover { transform: scale(1.1); }
+        .action-btn.confirm { background: rgba(127, 176, 105, 0.15); color: var(--success); }
+        .action-btn.cancel { background: rgba(199, 93, 93, 0.15); color: var(--danger); }
+        .action-btn.whatsapp { background: rgba(37, 211, 102, 0.15); color: var(--whatsapp); }
+        .action-btn.delete { background: rgba(199, 93, 93, 0.15); color: var(--danger); }
+        .action-btn.print { background: rgba(45, 45, 45, 0.1); color: var(--charcoal); }
+        
+        /* Reminders Alert */
+        .reminder-alert { background: linear-gradient(135deg, var(--warning) 0%, #d4940f 100%); color: white; border-radius: 15px; padding: 18px 22px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; }
+        .reminder-alert h4 { display: flex; align-items: center; gap: 10px; font-size: 1rem; }
+        .reminder-alert p { font-size: 0.85rem; opacity: 0.9; }
+        
+        /* Forms */
+        .form-group { margin-bottom: 18px; }
+        .form-label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--charcoal); margin-bottom: 6px; }
+        .form-input { width: 100%; padding: 12px 15px; border: 1px solid var(--cream-dark); border-radius: 10px; font-family: 'Montserrat', sans-serif; font-size: 0.85rem; color: var(--charcoal); background: var(--white); }
+        .form-input:focus { outline: none; border-color: var(--rose-gold); box-shadow: 0 0 0 3px rgba(183, 110, 121, 0.1); }
+        .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all 0.3s ease; }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal { background: var(--white); border-radius: 20px; padding: 30px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; transform: scale(0.9); transition: all 0.3s ease; }
+        .modal-overlay.active .modal { transform: scale(1); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid var(--cream-dark); }
+        .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 1.4rem; font-weight: 600; }
+        .modal-close { width: 35px; height: 35px; border-radius: 50%; border: none; background: var(--cream); cursor: pointer; font-size: 1.1rem; }
+        .modal-close:hover { background: var(--rose-gold); color: white; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 25px; padding-top: 15px; border-top: 1px solid var(--cream-dark); }
+        
+        /* Sections */
+        .page-section { display: none; }
+        .page-section.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Stock */
+        .stock-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; background: var(--cream); border-radius: 12px; margin-bottom: 10px; }
+        .stock-info h4 { font-size: 0.95rem; margin-bottom: 3px; }
+        .stock-info p { font-size: 0.8rem; color: var(--charcoal-light); }
+        .stock-quantity { display: flex; align-items: center; gap: 12px; }
+        .stock-quantity span { font-size: 1.2rem; font-weight: 700; min-width: 40px; text-align: center; }
+        .stock-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--cream-dark); background: white; cursor: pointer; font-size: 1rem; }
+        .stock-btn:hover { background: var(--rose-gold); color: white; border-color: var(--rose-gold); }
+        
+        /* Client grid */
+        .client-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .client-card { background: var(--white); border-radius: 15px; padding: 20px; box-shadow: var(--shadow); }
+        .client-avatar { width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: white; margin-bottom: 12px; }
+        .client-name { font-weight: 600; margin-bottom: 4px; }
+        .client-info { font-size: 0.8rem; color: var(--charcoal-light); margin-bottom: 12px; }
+        .client-stats { display: flex; gap: 20px; padding-top: 12px; border-top: 1px solid var(--cream-dark); font-size: 0.75rem; }
+        .client-stat-value { font-weight: 700; color: var(--rose-gold); }
+        .client-actions { display: flex; gap: 8px; margin-top: 12px; }
+        .client-actions .btn { flex: 1; justify-content: center; }
+        
+        /* Service grid */
+        .service-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; }
+        .service-card { background: var(--white); border-radius: 15px; padding: 20px; box-shadow: var(--shadow); }
+        .service-icon { width: 45px; height: 45px; border-radius: 12px; background: linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 12px; }
+        .service-name { font-weight: 600; margin-bottom: 4px; }
+        .service-desc { font-size: 0.8rem; color: var(--charcoal-light); margin-bottom: 12px; }
+        .service-price { font-size: 1.3rem; font-weight: 700; color: var(--rose-gold); }
+        .service-duration { font-size: 0.75rem; color: var(--charcoal-light); }
+        
+        /* Search */
+        .search-bar { position: relative; margin-bottom: 20px; }
+        .search-bar input { width: 100%; padding: 12px 15px 12px 45px; border: 1px solid var(--cream-dark); border-radius: 12px; font-size: 0.85rem; }
+        .search-bar::before { content: '🔍'; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); }
+        
+        /* Filter */
+        .filter-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end; }
+        .filter-row .form-group { margin-bottom: 0; }
+        .filter-row .form-input { max-width: 160px; }
+        
+        /* Empty */
+        .empty-state { text-align: center; padding: 50px 20px; color: var(--charcoal-light); }
+        .empty-state-icon { font-size: 3rem; margin-bottom: 15px; }
+        .empty-state h3 { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; color: var(--charcoal); margin-bottom: 8px; }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .sidebar { width: 60px; padding: 15px 8px; }
+            .logo h1, .logo span, .nav-item span, .sidebar-footer { display: none; }
+            .nav-item { justify-content: center; padding: 12px; }
+            .nav-item i { margin-right: 0; }
+            .nav-badge { position: absolute; top: 5px; right: 5px; }
+            .main-content { margin-left: 60px; padding: 15px; }
+            .form-row { grid-template-columns: 1fr; }
+        }
+        
+        /* Login */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, var(--charcoal) 0%, #1a1a1a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .login-overlay.hidden { display: none; }
+        .login-card {
+            background: var(--white);
+            border-radius: 25px;
+            padding: 40px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .login-header .login-icon { font-size: 3rem; display: block; margin-bottom: 15px; }
+        .login-header h1 {
+            font-family: 'Cormorant Garamond', serif;
+            font-size: 2rem;
+            color: var(--rose-gold);
+            letter-spacing: 2px;
+            margin-bottom: 5px;
+        }
+        .login-header p { color: var(--charcoal-light); font-size: 0.9rem; }
+        .btn-logout {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(199, 93, 93, 0.2);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            color: var(--danger);
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-logout:hover { background: var(--danger); color: white; }
+    </style>
+</head>
+<body>
+    <!-- Tela de Login -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-header">
+                <span class="login-icon">✨</span>
+                <h1>Lash Studio</h1>
+                <p>Área Administrativa</p>
+            </div>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">🔐 Senha</label>
+                    <input type="password" class="form-input" id="loginPassword" placeholder="Digite a senha" required autofocus>
+                </div>
+                <div id="loginError" style="color:var(--danger);font-size:0.85rem;margin-bottom:15px;display:none">Senha incorreta!</div>
+                <button type="submit" class="btn btn-primary" style="width:100%">Entrar</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="app-container" id="appContainer" style="display:none">
+        <aside class="sidebar">
+            <div class="logo">
+                <span class="logo-icon">✨</span>
+                <h1>Lash Studio</h1>
+                <span>PAINEL ADMIN</span>
+            </div>
+            <nav class="nav-menu">
+                <div class="nav-item active" data-page="dashboard"><i>📊</i><span>Dashboard</span></div>
+                <div class="nav-item" data-page="online"><i>🌐</i><span>Agend. Online</span><span class="nav-badge" id="pendingBadge">0</span></div>
+                <div class="nav-item" data-page="clients"><i>👩</i><span>Clientes</span></div>
+                <div class="nav-item" data-page="schedule"><i>📅</i><span>Agenda</span></div>
+                <div class="nav-item" data-page="services"><i>💅</i><span>Serviços</span></div>
+                <div class="nav-item" data-page="sales"><i>💰</i><span>Vendas</span></div>
+                <div class="nav-item" data-page="stock"><i>📦</i><span>Estoque</span></div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="/">← Ver site público</a>
+                <button class="btn-logout" onclick="logout()">🚪 Sair</button>
+            </div>
+        </aside>
+        
+        <main class="main-content">
+            <!-- Dashboard -->
+            <section id="dashboard" class="page-section active">
+                <div class="header">
+                    <div class="header-title"><h2>Dashboard</h2><p>Resumo do seu negócio</p></div>
+                </div>
+                
+                <div id="reminderAlert" style="display:none"></div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card"><div class="stat-icon rose">📅</div><div class="stat-value" id="statToday">0</div><div class="stat-label">Atendimentos Hoje</div></div>
+                    <div class="stat-card"><div class="stat-icon gold">💰</div><div class="stat-value" id="statRevenue">R$ 0</div><div class="stat-label">Faturamento Mês</div></div>
+                    <div class="stat-card"><div class="stat-icon green">👩</div><div class="stat-value" id="statClients">0</div><div class="stat-label">Clientes</div></div>
+                    <div class="stat-card"><div class="stat-icon orange">⏳</div><div class="stat-value" id="statPending">0</div><div class="stat-label">Pendentes</div></div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Últimas Vendas</h3></div>
+                    <div class="table-container">
+                        <table><thead><tr><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Data</th></tr></thead><tbody id="recentSales"></tbody></table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Agendamentos Online -->
+            <section id="online" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>🌐 Agendamentos Online</h2><p>Agendamentos feitos pelo site</p></div>
+                </div>
+                
+                <div id="reminderSection"></div>
+                
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Pendentes</h3></div>
+                    <div class="table-container">
+                        <table><thead><tr><th>Cliente</th><th>Telefone</th><th>Serviço</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead><tbody id="pendingTable"></tbody></table>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Confirmados</h3></div>
+                    <div class="table-container">
+                        <table><thead><tr><th>Cliente</th><th>Telefone</th><th>Serviço</th><th>Data</th><th>Hora</th><th>Status</th><th>Ações</th></tr></thead><tbody id="confirmedTable"></tbody></table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Clientes -->
+            <section id="clients" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>Clientes</h2><p>Carteira de clientes</p></div>
+                    <div class="header-actions"><button class="btn btn-primary" onclick="openModal('client')">➕ Nova</button></div>
+                </div>
+                <div class="search-bar"><input type="text" placeholder="Buscar cliente..." id="clientSearch" onkeyup="filterClients()"></div>
+                <div class="client-grid" id="clientGrid"></div>
+            </section>
+            
+            <!-- Agenda Manual -->
+            <section id="schedule" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>Agenda Manual</h2><p>Agendamentos feitos por você</p></div>
+                    <div class="header-actions"><button class="btn btn-primary" onclick="openModal('appointment')">➕ Novo</button></div>
+                </div>
+                <div class="card">
+                    <div class="table-container">
+                        <table><thead><tr><th>Cliente</th><th>Serviço</th><th>Data</th><th>Hora</th><th>Ações</th></tr></thead><tbody id="appointmentsTable"></tbody></table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Serviços -->
+            <section id="services" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>Serviços</h2><p>Catálogo de serviços</p></div>
+                    <div class="header-actions"><button class="btn btn-primary" onclick="openModal('service')">➕ Novo</button></div>
+                </div>
+                <div class="service-grid" id="serviceGrid"></div>
+            </section>
+            
+            <!-- Vendas -->
+            <section id="sales" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>Vendas</h2><p>Histórico de vendas</p></div>
+                    <div class="header-actions"><button class="btn btn-primary" onclick="openModal('sale')">➕ Nova</button></div>
+                </div>
+                <div class="filter-row">
+                    <div class="form-group"><label class="form-label">De</label><input type="date" class="form-input" id="filterStart" onchange="loadSales()"></div>
+                    <div class="form-group"><label class="form-label">Até</label><input type="date" class="form-input" id="filterEnd" onchange="loadSales()"></div>
+                    <button class="btn btn-secondary btn-small" onclick="clearFilters()">Limpar</button>
+                </div>
+                <div class="card">
+                    <div class="card-header"><h3 class="card-title">Histórico</h3><span id="salesTotal" style="font-weight:600;color:var(--rose-gold)"></span></div>
+                    <div class="table-container">
+                        <table><thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Pagamento</th><th>Ações</th></tr></thead><tbody id="salesTable"></tbody></table>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Estoque -->
+            <section id="stock" class="page-section">
+                <div class="header">
+                    <div class="header-title"><h2>Estoque</h2><p>Controle de produtos</p></div>
+                    <div class="header-actions"><button class="btn btn-primary" onclick="openModal('product')">➕ Novo</button></div>
+                </div>
+                <div class="card">
+                    <div id="stockList"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Modals -->
+    <div class="modal-overlay" id="modalClient">
+        <div class="modal">
+            <div class="modal-header"><h3 class="modal-title">Nova Cliente</h3><button class="modal-close" onclick="closeModal('client')">✕</button></div>
+            <form id="clientForm">
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">Nome *</label><input type="text" class="form-input" name="name" required></div>
+                    <div class="form-group"><label class="form-label">WhatsApp *</label><input type="text" class="form-input" name="phone" required></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">CPF</label><input type="text" class="form-input" name="cpf"></div>
+                    <div class="form-group"><label class="form-label">E-mail</label><input type="email" class="form-input" name="email"></div>
+                </div>
+                <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" name="notes" rows="2"></textarea></div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('client')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modalService">
+        <div class="modal">
+            <div class="modal-header"><h3 class="modal-title">Novo Serviço</h3><button class="modal-close" onclick="closeModal('service')">✕</button></div>
+            <form id="serviceForm">
+                <div class="form-group"><label class="form-label">Nome *</label><input type="text" class="form-input" name="name" required></div>
+                <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" name="description" rows="2"></textarea></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">Preço *</label><input type="number" class="form-input" name="price" required step="0.01"></div>
+                    <div class="form-group"><label class="form-label">Duração (min) *</label><input type="number" class="form-input" name="duration" required></div>
+                </div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('service')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modalAppointment">
+        <div class="modal">
+            <div class="modal-header"><h3 class="modal-title">Novo Agendamento</h3><button class="modal-close" onclick="closeModal('appointment')">✕</button></div>
+            <form id="appointmentForm">
+                <div class="form-group"><label class="form-label">Cliente *</label><select class="form-input" name="client_id" required></select></div>
+                <div class="form-group"><label class="form-label">Serviço *</label><select class="form-input" name="service_id" required></select></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">Data *</label><input type="date" class="form-input" name="appointment_date" required></div>
+                    <div class="form-group"><label class="form-label">Hora *</label><input type="time" class="form-input" name="appointment_time" required></div>
+                </div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('appointment')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modalSale">
+        <div class="modal">
+            <div class="modal-header"><h3 class="modal-title">Nova Venda</h3><button class="modal-close" onclick="closeModal('sale')">✕</button></div>
+            <form id="saleForm">
+                <div class="form-group"><label class="form-label">Cliente *</label><select class="form-input" name="client_id" required></select></div>
+                <div class="form-group"><label class="form-label">Serviço *</label><select class="form-input" name="service_id" required onchange="updatePrice()"></select></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">Valor *</label><input type="number" class="form-input" name="value" required step="0.01"></div>
+                    <div class="form-group"><label class="form-label">Pagamento *</label><select class="form-input" name="payment_method" required><option value="">Selecione</option><option value="dinheiro">Dinheiro</option><option value="pix">PIX</option><option value="debito">Débito</option><option value="credito">Crédito</option></select></div>
+                </div>
+                <div class="form-group"><label class="form-label">Data</label><input type="date" class="form-input" name="sale_date"></div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('sale')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="modal-overlay" id="modalProduct">
+        <div class="modal">
+            <div class="modal-header"><h3 class="modal-title">Novo Produto</h3><button class="modal-close" onclick="closeModal('product')">✕</button></div>
+            <form id="productForm">
+                <div class="form-group"><label class="form-label">Nome *</label><input type="text" class="form-input" name="name" required></div>
+                <div class="form-group"><label class="form-label">Categoria</label><select class="form-input" name="category"><option value="fios">Fios</option><option value="cola">Colas</option><option value="removedor">Removedores</option><option value="ferramentas">Ferramentas</option><option value="outros">Outros</option></select></div>
+                <div class="form-row">
+                    <div class="form-group"><label class="form-label">Quantidade *</label><input type="number" class="form-input" name="quantity" required></div>
+                    <div class="form-group"><label class="form-label">Estoque Mínimo</label><input type="number" class="form-input" name="min_stock" value="5"></div>
+                </div>
+                <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('product')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+        let clients = [], services = [], onlineAppts = [], appointments = [], sales = [], products = [];
+        let authToken = localStorage.getItem('lash_admin_token');
+        
+        // ===== AUTENTICAÇÃO =====
+        async function checkAuth() {
+            if (!authToken) {
+                showLogin();
+                return false;
+            }
+            
+            try {
+                const res = await fetch(API + '/api/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: authToken })
+                });
+                
+                if (res.ok) {
+                    hideLogin();
+                    return true;
+                } else {
+                    localStorage.removeItem('lash_admin_token');
+                    authToken = null;
+                    showLogin();
+                    return false;
+                }
+            } catch (err) {
+                showLogin();
+                return false;
+            }
+        }
+        
+        function showLogin() {
+            document.getElementById('loginOverlay').classList.remove('hidden');
+            document.getElementById('appContainer').style.display = 'none';
+        }
+        
+        function hideLogin() {
+            document.getElementById('loginOverlay').classList.add('hidden');
+            document.getElementById('appContainer').style.display = 'flex';
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            
+            try {
+                const res = await fetch(API + '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    authToken = data.token;
+                    localStorage.setItem('lash_admin_token', authToken);
+                    errorEl.style.display = 'none';
+                    hideLogin();
+                    init();
+                } else {
+                    errorEl.style.display = 'block';
+                    document.getElementById('loginPassword').value = '';
+                    document.getElementById('loginPassword').focus();
+                }
+            } catch (err) {
+                errorEl.textContent = 'Erro de conexão';
+                errorEl.style.display = 'block';
+            }
+        });
+        
+        async function logout() {
+            if (authToken) {
+                try {
+                    await fetch(API + '/api/auth/logout', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: authToken })
+                    });
+                } catch (err) {}
+            }
+            localStorage.removeItem('lash_admin_token');
+            authToken = null;
+            showLogin();
+            document.getElementById('loginPassword').value = '';
+        }
+        
+        // ===== INIT =====
+        async function init() {
+            await Promise.all([loadStats(), loadClients(), loadServices(), loadOnlineAppointments(), loadAppointments(), loadSales(), loadProducts(), loadReminders()]);
+            updatePendingBadge();
+        }
+        
+        // Verificar auth ao carregar
+        checkAuth().then(valid => {
+            if (valid) init();
+        });
+        
+        // ===== NAV =====
+        document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', () => {
+            document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+            n.classList.add('active');
+            document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(n.dataset.page).classList.add('active');
+        }));
+        
+        // ===== MODAL =====
+        function openModal(type) {
+            document.getElementById('modal' + type.charAt(0).toUpperCase() + type.slice(1)).classList.add('active');
+            if (type === 'appointment' || type === 'sale') populateSelects();
+            if (type === 'sale') document.querySelector('#saleForm input[name="sale_date"]').value = new Date().toISOString().split('T')[0];
+        }
+        function closeModal(type) {
+            const m = document.getElementById('modal' + type.charAt(0).toUpperCase() + type.slice(1));
+            m.classList.remove('active');
+            m.querySelector('form')?.reset();
+        }
+        function populateSelects() {
+            document.querySelectorAll('select[name="client_id"]').forEach(s => { s.innerHTML = '<option value="">Selecione</option>' + clients.map(c => `<option value="${c.id}">${c.name}</option>`).join(''); });
+            document.querySelectorAll('select[name="service_id"]').forEach(s => { s.innerHTML = '<option value="">Selecione</option>' + services.map(sv => `<option value="${sv.id}" data-price="${sv.price}">${sv.name} - R$ ${parseFloat(sv.price).toFixed(2)}</option>`).join(''); });
+        }
+        function updatePrice() {
+            const sel = document.querySelector('#saleForm select[name="service_id"]');
+            const opt = sel.options[sel.selectedIndex];
+            if (opt?.dataset.price) document.querySelector('#saleForm input[name="value"]').value = opt.dataset.price;
+        }
+        
+        // ===== WHATSAPP =====
+        function sendWhatsApp(phone, msg) {
+            let p = phone.replace(/\D/g, '');
+            if (p.length <= 11) p = '55' + p;
+            window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`, '_blank');
+        }
+        
+        function sendConfirmation(appt) {
+            const date = new Date(appt.appointment_date + 'T12:00:00').toLocaleDateString('pt-BR');
+            const msg = `Olá ${appt.client_name.split(' ')[0]}! 💕\n\n✅ Seu agendamento foi CONFIRMADO!\n\n📅 Data: ${date}\n⏰ Horário: ${appt.appointment_time.slice(0,5)}\n💅 Serviço: ${appt.service_name}\n\nTe esperamos! ✨\n\nLash Studio`;
+            sendWhatsApp(appt.client_phone, msg);
+        }
+        
+        function sendCancellation(appt) {
+            const date = new Date(appt.appointment_date + 'T12:00:00').toLocaleDateString('pt-BR');
+            const msg = `Olá ${appt.client_name.split(' ')[0]}!\n\n❌ Infelizmente precisamos cancelar seu agendamento do dia ${date} às ${appt.appointment_time.slice(0,5)}.\n\nPor favor, entre em contato para reagendarmos! 💕\n\nLash Studio`;
+            sendWhatsApp(appt.client_phone, msg);
+        }
+        
+        function sendReminder(appt) {
+            const date = new Date(appt.appointment_date + 'T12:00:00').toLocaleDateString('pt-BR');
+            const msg = `Olá ${appt.client_name.split(' ')[0]}! 💕\n\n🔔 Lembrete do seu agendamento AMANHÃ!\n\n📅 Data: ${date}\n⏰ Horário: ${appt.appointment_time.slice(0,5)}\n💅 Serviço: ${appt.service_name}\n\nTe esperamos! ✨\n\nLash Studio`;
+            sendWhatsApp(appt.client_phone, msg);
+        }
+        
+        // ===== API CALLS =====
+        async function loadStats() {
+            try {
+                const res = await fetch(API + '/api/admin/stats');
+                const data = await res.json();
+                document.getElementById('statToday').textContent = data.todayAppointments;
+                document.getElementById('statRevenue').textContent = 'R$ ' + data.monthRevenue.toFixed(2);
+                document.getElementById('statClients').textContent = data.totalClients;
+                document.getElementById('statPending').textContent = data.pendingAppointments;
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadClients() {
+            try {
+                const res = await fetch(API + '/api/admin/clients');
+                clients = await res.json();
+                renderClients();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadServices() {
+            try {
+                const res = await fetch(API + '/api/admin/services');
+                services = await res.json();
+                renderServices();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadOnlineAppointments() {
+            try {
+                const res = await fetch(API + '/api/admin/online-appointments');
+                onlineAppts = await res.json();
+                renderOnlineAppointments();
+                updatePendingBadge();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadAppointments() {
+            try {
+                const res = await fetch(API + '/api/admin/appointments');
+                appointments = await res.json();
+                renderAppointments();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadSales() {
+            try {
+                const res = await fetch(API + '/api/admin/sales');
+                sales = await res.json();
+                renderSales();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadProducts() {
+            try {
+                const res = await fetch(API + '/api/admin/products');
+                products = await res.json();
+                renderProducts();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function loadReminders() {
+            try {
+                const res = await fetch(API + '/api/admin/reminders');
+                const reminders = await res.json();
+                renderReminders(reminders);
+            } catch (err) { console.error(err); }
+        }
+        
+        // ===== RENDERS =====
+        function renderClients() {
+            const search = document.getElementById('clientSearch')?.value.toLowerCase() || '';
+            const filtered = clients.filter(c => c.name.toLowerCase().includes(search) || c.phone?.includes(search));
+            document.getElementById('clientGrid').innerHTML = filtered.length ? filtered.map(c => `
+                <div class="client-card">
+                    <div class="client-avatar">${c.name.charAt(0)}</div>
+                    <div class="client-name">${c.name}</div>
+                    <div class="client-info">📞 ${c.phone || '-'}</div>
+                    <div class="client-actions">
+                        <button class="btn btn-whatsapp btn-small" onclick="sendWhatsApp('${c.phone}', '')">📱 Zap</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteClient(${c.id})">🗑️</button>
+                    </div>
+                </div>
+            `).join('') : '<div class="empty-state"><div class="empty-state-icon">👩</div><h3>Nenhuma cliente</h3></div>';
+        }
+        
+        function filterClients() { renderClients(); }
+        
+        function renderServices() {
+            document.getElementById('serviceGrid').innerHTML = services.length ? services.map(s => `
+                <div class="service-card">
+                    <div class="service-icon">✨</div>
+                    <div class="service-name">${s.name}</div>
+                    <div class="service-desc">${s.description || '-'} • ${s.duration} min</div>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div class="service-price">R$ ${parseFloat(s.price).toFixed(2)}</div>
+                        <button class="action-btn delete" onclick="deleteService(${s.id})">🗑️</button>
+                    </div>
+                </div>
+            `).join('') : '<div class="empty-state"><div class="empty-state-icon">💅</div><h3>Nenhum serviço</h3></div>';
+        }
+        
+        function renderOnlineAppointments() {
+            const pending = onlineAppts.filter(a => a.status === 'pendente');
+            const confirmed = onlineAppts.filter(a => a.status === 'confirmado');
+            
+            document.getElementById('pendingTable').innerHTML = pending.length ? pending.map(a => `
+                <tr>
+                    <td><strong>${a.client_name}</strong><br><small>${a.client_cpf}</small></td>
+                    <td>${a.client_phone}</td>
+                    <td>${a.service_name || '-'}</td>
+                    <td>${formatDate(a.appointment_date)}</td>
+                    <td>${a.appointment_time?.slice(0,5)}</td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn confirm" onclick="confirmAppt(${a.id})" title="Confirmar">✅</button>
+                            <button class="action-btn cancel" onclick="cancelAppt(${a.id})" title="Cancelar">❌</button>
+                            <button class="action-btn whatsapp" onclick="sendWhatsApp('${a.client_phone}', '')" title="WhatsApp">📱</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999">Nenhum pendente</td></tr>';
+            
+            document.getElementById('confirmedTable').innerHTML = confirmed.length ? confirmed.map(a => `
+                <tr>
+                    <td>${a.client_name}</td>
+                    <td>${a.client_phone}</td>
+                    <td>${a.service_name || '-'}</td>
+                    <td>${formatDate(a.appointment_date)}</td>
+                    <td>${a.appointment_time?.slice(0,5)}</td>
+                    <td><span class="badge badge-success">Confirmado</span></td>
+                    <td>
+                        <div class="action-btns">
+                            <button class="action-btn whatsapp" onclick="sendReminder(${JSON.stringify(a).replace(/"/g, '&quot;')})" title="Lembrete">🔔</button>
+                            <button class="action-btn cancel" onclick="cancelAppt(${a.id})" title="Cancelar">❌</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999">Nenhum confirmado</td></tr>';
+        }
+        
+        function renderReminders(reminders) {
+            if (reminders.length > 0) {
+                document.getElementById('reminderAlert').style.display = 'flex';
+                document.getElementById('reminderAlert').innerHTML = `
+                    <div><h4>🔔 Enviar Lembretes (${reminders.length})</h4><p>Clientes com atendimento amanhã</p></div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap">
+                        ${reminders.map(r => `<button class="btn btn-small" style="background:white;color:var(--warning)" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify(r).replace(/"/g, '&quot;')})">${r.client_name.split(' ')[0]} ${r.appointment_time?.slice(0,5)}</button>`).join('')}
+                    </div>
+                `;
+                document.getElementById('reminderSection').innerHTML = document.getElementById('reminderAlert').innerHTML;
+            } else {
+                document.getElementById('reminderAlert').style.display = 'none';
+                document.getElementById('reminderSection').innerHTML = '';
+            }
+        }
+        
+        function renderAppointments() {
+            document.getElementById('appointmentsTable').innerHTML = appointments.length ? appointments.map(a => `
+                <tr>
+                    <td>${a.client_name || '-'}</td>
+                    <td>${a.service_name || '-'}</td>
+                    <td>${formatDate(a.appointment_date)}</td>
+                    <td>${a.appointment_time?.slice(0,5)}</td>
+                    <td><button class="action-btn delete" onclick="deleteAppointment(${a.id})">🗑️</button></td>
+                </tr>
+            `).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px;color:#999">Nenhum agendamento</td></tr>';
+        }
+        
+        function renderSales() {
+            const start = document.getElementById('filterStart').value;
+            const end = document.getElementById('filterEnd').value;
+            let filtered = [...sales];
+            if (start) filtered = filtered.filter(s => s.sale_date >= start);
+            if (end) filtered = filtered.filter(s => s.sale_date <= end);
+            
+            const total = filtered.reduce((sum, s) => sum + parseFloat(s.value), 0);
+            document.getElementById('salesTotal').textContent = `Total: R$ ${total.toFixed(2)} (${filtered.length})`;
+            
+            const payLabels = { dinheiro: 'Dinheiro', pix: 'PIX', debito: 'Débito', credito: 'Crédito' };
+            document.getElementById('salesTable').innerHTML = filtered.length ? filtered.map(s => `
+                <tr>
+                    <td>${formatDate(s.sale_date)}</td>
+                    <td>${s.client_name || '-'}</td>
+                    <td>${s.service_name || '-'}</td>
+                    <td><strong>R$ ${parseFloat(s.value).toFixed(2)}</strong></td>
+                    <td>${payLabels[s.payment_method] || s.payment_method}</td>
+                    <td><button class="action-btn delete" onclick="deleteSale(${s.id})">🗑️</button></td>
+                </tr>
+            `).join('') : '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999">Nenhuma venda</td></tr>';
+            
+            // Recent sales on dashboard
+            document.getElementById('recentSales').innerHTML = sales.slice(0, 5).map(s => `
+                <tr><td>${s.client_name || '-'}</td><td>${s.service_name || '-'}</td><td>R$ ${parseFloat(s.value).toFixed(2)}</td><td>${formatDate(s.sale_date)}</td></tr>
+            `).join('') || '<tr><td colspan="4" style="text-align:center;padding:20px;color:#999">Nenhuma venda</td></tr>';
+        }
+        
+        function clearFilters() {
+            document.getElementById('filterStart').value = '';
+            document.getElementById('filterEnd').value = '';
+            loadSales();
+        }
+        
+        function renderProducts() {
+            const catLabels = { fios: 'Fios', cola: 'Colas', removedor: 'Removedores', ferramentas: 'Ferramentas', outros: 'Outros' };
+            document.getElementById('stockList').innerHTML = products.length ? products.map(p => {
+                const low = p.quantity <= p.min_stock;
+                return `
+                    <div class="stock-item">
+                        <div class="stock-info"><h4>${p.name}</h4><p>${catLabels[p.category] || p.category} ${low ? '⚠️ Baixo!' : ''}</p></div>
+                        <div class="stock-quantity">
+                            <button class="stock-btn" onclick="updateStock(${p.id}, -1)">−</button>
+                            <span style="color:${low ? 'var(--danger)' : 'var(--charcoal)'}">${p.quantity}</span>
+                            <button class="stock-btn" onclick="updateStock(${p.id}, 1)">+</button>
+                            <button class="action-btn delete" onclick="deleteProduct(${p.id})">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('') : '<div class="empty-state"><div class="empty-state-icon">📦</div><h3>Nenhum produto</h3></div>';
+        }
+        
+        function updatePendingBadge() {
+            const count = onlineAppts.filter(a => a.status === 'pendente').length;
+            document.getElementById('pendingBadge').textContent = count;
+            document.getElementById('pendingBadge').style.display = count > 0 ? 'inline' : 'none';
+        }
+        
+        // ===== ACTIONS =====
+        async function confirmAppt(id) {
+            const appt = onlineAppts.find(a => a.id === id);
+            if (!appt) return;
+            
+            try {
+                await fetch(API + `/api/admin/online-appointments/${id}/confirm`, { method: 'PUT' });
+                sendConfirmation(appt);
+                await loadOnlineAppointments();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function cancelAppt(id) {
+            if (!confirm('Cancelar este agendamento?')) return;
+            const appt = onlineAppts.find(a => a.id === id);
+            
+            try {
+                await fetch(API + `/api/admin/online-appointments/${id}/cancel`, { method: 'PUT' });
+                if (appt) sendCancellation(appt);
+                await loadOnlineAppointments();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function sendReminderAndMark(id, appt) {
+            sendReminder(appt);
+            try {
+                await fetch(API + `/api/admin/online-appointments/${id}/reminder-sent`, { method: 'PUT' });
+                await loadReminders();
+            } catch (err) { console.error(err); }
+        }
+        
+        async function deleteClient(id) {
+            if (!confirm('Excluir cliente?')) return;
+            try {
+                await fetch(API + `/api/admin/clients/${id}`, { method: 'DELETE' });
+                await loadClients();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function deleteService(id) {
+            if (!confirm('Excluir serviço?')) return;
+            try {
+                await fetch(API + `/api/admin/services/${id}`, { method: 'DELETE' });
+                await loadServices();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function deleteAppointment(id) {
+            if (!confirm('Excluir agendamento?')) return;
+            try {
+                await fetch(API + `/api/admin/appointments/${id}`, { method: 'DELETE' });
+                await loadAppointments();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function deleteSale(id) {
+            if (!confirm('Excluir venda?')) return;
+            try {
+                await fetch(API + `/api/admin/sales/${id}`, { method: 'DELETE' });
+                await loadSales();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function deleteProduct(id) {
+            if (!confirm('Excluir produto?')) return;
+            try {
+                await fetch(API + `/api/admin/products/${id}`, { method: 'DELETE' });
+                await loadProducts();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        async function updateStock(id, delta) {
+            try {
+                await fetch(API + `/api/admin/products/${id}/stock`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta }) });
+                await loadProducts();
+            } catch (err) { alert('Erro: ' + err.message); }
+        }
+        
+        // ===== FORMS =====
+        document.getElementById('clientForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                await fetch(API + '/api/admin/clients', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(fd)) });
+                closeModal('client');
+                await loadClients();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        });
+        
+        document.getElementById('serviceForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                await fetch(API + '/api/admin/services', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(fd)) });
+                closeModal('service');
+                await loadServices();
+            } catch (err) { alert('Erro: ' + err.message); }
+        });
+        
+        document.getElementById('appointmentForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                await fetch(API + '/api/admin/appointments', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(fd)) });
+                closeModal('appointment');
+                await loadAppointments();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        });
+        
+        document.getElementById('saleForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                await fetch(API + '/api/admin/sales', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(fd)) });
+                closeModal('sale');
+                await loadSales();
+                await loadStats();
+            } catch (err) { alert('Erro: ' + err.message); }
+        });
+        
+        document.getElementById('productForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            try {
+                await fetch(API + '/api/admin/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(fd)) });
+                closeModal('product');
+                await loadProducts();
+            } catch (err) { alert('Erro: ' + err.message); }
+        });
+        
+        // ===== UTILS =====
+        function formatDate(d) { return d ? new Date(d + 'T12:00:00').toLocaleDateString('pt-BR') : '-'; }
+    </script>
+</body>
+</html>
