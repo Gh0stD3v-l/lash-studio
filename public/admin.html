@@ -422,6 +422,7 @@
                     <div class="form-group"><label class="form-label">CPF</label><input type="text" class="form-input" name="cpf"></div>
                     <div class="form-group"><label class="form-label">E-mail</label><input type="email" class="form-input" name="email"></div>
                 </div>
+                <div class="form-group"><label class="form-label">🎂 Data de Aniversário</label><input type="date" class="form-input" name="birthdate"></div>
                 <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" name="notes" rows="2"></textarea></div>
                 <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('client')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
             </form>
@@ -486,6 +487,19 @@
                 </div>
                 <div class="modal-actions"><button type="button" class="btn btn-secondary" onclick="closeModal('product')">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal Perfil do Cliente -->
+    <div class="modal-overlay" id="modalClientProfile">
+        <div class="modal" style="max-width:600px">
+            <div class="modal-header">
+                <h3 class="modal-title">👩 Perfil da Cliente</h3>
+                <button class="modal-close" onclick="closeModal('clientProfile')">✕</button>
+            </div>
+            <div id="clientProfileContent">
+                <p style="text-align:center;padding:30px;color:#999">Carregando...</p>
+            </div>
         </div>
     </div>
 
@@ -725,17 +739,21 @@
         function renderClients() {
             const search = document.getElementById('clientSearch')?.value.toLowerCase() || '';
             const filtered = clients.filter(c => c.name.toLowerCase().includes(search) || c.phone?.includes(search));
-            document.getElementById('clientGrid').innerHTML = filtered.length ? filtered.map(c => `
+            document.getElementById('clientGrid').innerHTML = filtered.length ? filtered.map(c => {
+                const birthday = c.birthdate ? formatDate(c.birthdate) : null;
+                return `
                 <div class="client-card">
-                    <div class="client-avatar">${c.name.charAt(0)}</div>
-                    <div class="client-name">${c.name}</div>
+                    <div class="client-avatar" onclick="openClientProfile(${c.id})" style="cursor:pointer">${c.name.charAt(0)}</div>
+                    <div class="client-name" onclick="openClientProfile(${c.id})" style="cursor:pointer">${c.name}</div>
                     <div class="client-info">📞 ${c.phone || '-'}</div>
+                    ${birthday ? `<div class="client-info">🎂 ${birthday}</div>` : ''}
                     <div class="client-actions">
+                        <button class="btn btn-secondary btn-small" onclick="openClientProfile(${c.id})">👁️ Ver</button>
                         <button class="btn btn-whatsapp btn-small" onclick="sendWhatsApp('${c.phone}', '')">📱 Zap</button>
                         <button class="btn btn-danger btn-small" onclick="deleteClient(${c.id})">🗑️</button>
                     </div>
                 </div>
-            `).join('') : '<div class="empty-state"><div class="empty-state-icon">👩</div><h3>Nenhuma cliente</h3></div>';
+            `}).join('') : '<div class="empty-state"><div class="empty-state-icon">👩</div><h3>Nenhuma cliente</h3></div>';
         }
         
         function filterClients() { renderClients(); }
@@ -910,6 +928,88 @@
                 await fetch(API + `/api/admin/online-appointments/${id}/reminder-sent`, { method: 'PUT' });
                 await loadReminders();
             } catch (err) { console.error(err); }
+        }
+        
+        // Abrir perfil do cliente
+        async function openClientProfile(clientId) {
+            document.getElementById('modalClientProfile').classList.add('active');
+            document.getElementById('clientProfileContent').innerHTML = '<p style="text-align:center;padding:30px;color:#999">Carregando...</p>';
+            
+            try {
+                const res = await fetch(API + `/api/admin/clients/${clientId}/history`);
+                const data = await res.json();
+                
+                const client = data.client;
+                const birthday = client.birthdate ? formatDate(client.birthdate) : 'Não informado';
+                const createdAt = client.created_at ? formatDate(client.created_at) : '-';
+                
+                let historyHtml = '';
+                if (data.sales.length > 0) {
+                    historyHtml = data.sales.map(s => `
+                        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--cream-dark)">
+                            <div>
+                                <strong>${s.service_name || 'Serviço'}</strong>
+                                <div style="font-size:0.8rem;color:var(--charcoal-light)">${formatDate(s.sale_date)}</div>
+                            </div>
+                            <div style="font-weight:600;color:var(--rose-gold)">R$ ${parseFloat(s.value).toFixed(2)}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    historyHtml = '<p style="text-align:center;padding:20px;color:#999">Nenhuma visita registrada ainda</p>';
+                }
+                
+                document.getElementById('clientProfileContent').innerHTML = `
+                    <div style="text-align:center;margin-bottom:25px">
+                        <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg, var(--rose-gold) 0%, var(--rose-gold-dark) 100%);display:flex;align-items:center;justify-content:center;font-size:2rem;color:white;margin:0 auto 15px">${client.name.charAt(0)}</div>
+                        <h3 style="font-family:'Cormorant Garamond',serif;font-size:1.5rem;margin-bottom:5px">${client.name}</h3>
+                        <p style="color:var(--charcoal-light);font-size:0.9rem">📞 ${client.phone || '-'}</p>
+                    </div>
+                    
+                    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:15px;margin-bottom:25px">
+                        <div style="background:var(--cream);padding:15px;border-radius:12px;text-align:center">
+                            <div style="font-size:1.5rem;font-weight:700;color:var(--rose-gold)">${data.visitCount}</div>
+                            <div style="font-size:0.8rem;color:var(--charcoal-light)">Visitas</div>
+                        </div>
+                        <div style="background:var(--cream);padding:15px;border-radius:12px;text-align:center">
+                            <div style="font-size:1.5rem;font-weight:700;color:var(--success)">R$ ${data.totalSpent.toFixed(2)}</div>
+                            <div style="font-size:0.8rem;color:var(--charcoal-light)">Total Gasto</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background:var(--cream);padding:15px;border-radius:12px;margin-bottom:20px">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                            <span style="color:var(--charcoal-light)">🎂 Aniversário</span>
+                            <strong>${birthday}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                            <span style="color:var(--charcoal-light)">📧 E-mail</span>
+                            <strong>${client.email || 'Não informado'}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+                            <span style="color:var(--charcoal-light)">📋 CPF</span>
+                            <strong>${client.cpf || 'Não informado'}</strong>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                            <span style="color:var(--charcoal-light)">📅 Cliente desde</span>
+                            <strong>${createdAt}</strong>
+                        </div>
+                    </div>
+                    
+                    ${client.notes ? `<div style="background:rgba(232,183,57,0.1);padding:15px;border-radius:12px;margin-bottom:20px"><strong>📝 Observações:</strong><p style="margin-top:8px">${client.notes}</p></div>` : ''}
+                    
+                    <h4 style="margin-bottom:15px;font-family:'Cormorant Garamond',serif">📜 Histórico de Visitas</h4>
+                    <div style="max-height:200px;overflow-y:auto">
+                        ${historyHtml}
+                    </div>
+                    
+                    <div style="margin-top:20px;display:flex;gap:10px">
+                        <button class="btn btn-whatsapp" style="flex:1" onclick="sendWhatsApp('${client.phone}', '')">📱 WhatsApp</button>
+                        <button class="btn btn-secondary" style="flex:1" onclick="closeModal('clientProfile')">Fechar</button>
+                    </div>
+                `;
+            } catch (err) {
+                document.getElementById('clientProfileContent').innerHTML = '<p style="text-align:center;padding:30px;color:var(--danger)">Erro ao carregar perfil</p>';
+            }
         }
         
         async function deleteClient(id) {
