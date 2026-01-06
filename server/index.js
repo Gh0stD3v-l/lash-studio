@@ -151,6 +151,17 @@ async function initDB() {
       )
     `);
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews (
+        id SERIAL PRIMARY KEY,
+        client_name VARCHAR(255) NOT NULL,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        approved BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     // Inserir serviço padrão se não existir
     const services = await pool.query('SELECT COUNT(*) FROM services');
     if (parseInt(services.rows[0].count) === 0) {
@@ -606,6 +617,92 @@ app.get('/api/admin/stats', async (req, res) => {
       totalClients: parseInt(totalClients.rows[0].count),
       monthSales: parseInt(monthSales.rows[0].count),
       pendingAppointments: parseInt(pendingAppts.rows[0].count)
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==================== ROTAS - AVALIAÇÕES ====================
+
+// Listar avaliações (público)
+app.get('/api/reviews', async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM reviews WHERE approved = true ORDER BY created_at DESC LIMIT 50'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Criar avaliação (público)
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { client_name, rating, comment } = req.body;
+    
+    if (!client_name || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Nome e avaliação são obrigatórios' });
+    }
+    
+    const result = await pool.query(
+      'INSERT INTO reviews (client_name, rating, comment) VALUES ($1, $2, $3) RETURNING *',
+      [client_name, rating, comment || '']
+    );
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Deletar avaliação (admin)
+app.delete('/api/admin/reviews/:id', async (req, res) => {
+  try {
+    await pool.query('DELETE FROM reviews WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Horários disponíveis hoje (público)
+app.get('/api/today-slots', async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // ===== 🕐 HORÁRIOS DE FUNCIONAMENTO =====
+    const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    // =========================================
+    
+    // Buscar horários já agendados hoje
+    const booked = await pool.query(
+      `SELECT appointment_time FROM online_appointments 
+       WHERE appointment_date = $1 AND status != 'cancelado'
+       UNION
+       SELECT appointment_time FROM appointments 
+       WHERE appointment_date = $1 AND status != 'cancelado'`,
+      [today]
+    );
+    
+    const bookedTimes = booked.rows.map(r => r.appointment_time.slice(0, 5));
+    const available = allSlots.filter(slot => !bookedTimes.includes(slot));
+    
+    // Filtrar horários que já passaram
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    const stillAvailable = available.filter(slot => {
+      const [h, m] = slot.split(':').map(Number);
+      return h > currentHour || (h === currentHour && m > currentMinute);
+    });
+    
+    res.json({
+      date: today,
+      slots: stillAvailable,
+      total: allSlots.length,
+      available: stillAvailable.length
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
