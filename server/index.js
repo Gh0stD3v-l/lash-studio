@@ -155,7 +155,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS reviews (
         id SERIAL PRIMARY KEY,
         client_name VARCHAR(255) NOT NULL,
-        client_cpf VARCHAR(14),
+        client_phone VARCHAR(20),
         rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
         comment TEXT,
         approved BOOLEAN DEFAULT true,
@@ -163,9 +163,9 @@ async function initDB() {
       )
     `);
     
-    // Adicionar coluna client_cpf se não existir (para bancos já criados)
+    // Adicionar coluna client_phone se não existir (para bancos já criados)
     await pool.query(`
-      ALTER TABLE reviews ADD COLUMN IF NOT EXISTS client_cpf VARCHAR(14)
+      ALTER TABLE reviews ADD COLUMN IF NOT EXISTS client_phone VARCHAR(20)
     `).catch(() => {});
 
     // Inserir serviço padrão se não existir
@@ -288,7 +288,7 @@ app.get('/api/available-slots', async (req, res) => {
 // Criar agendamento online (site público)
 app.post('/api/appointments', async (req, res) => {
   try {
-    const { client_name, client_cpf, client_phone, client_email, service_id, appointment_date, appointment_time } = req.body;
+    const { client_name, client_phone, client_email, service_id, appointment_date, appointment_time } = req.body;
     
     // Verificar se horário ainda está disponível
     const check = await pool.query(
@@ -304,7 +304,7 @@ app.post('/api/appointments', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO online_appointments (client_name, client_cpf, client_phone, client_email, service_id, appointment_date, appointment_time)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [client_name, client_cpf, client_phone, client_email, service_id, appointment_date, appointment_time]
+      [client_name, '', client_phone, client_email, service_id, appointment_date, appointment_time]
     );
     
     res.json(result.rows[0]);
@@ -645,27 +645,6 @@ app.get('/api/admin/stats', async (req, res) => {
 
 // ==================== ROTAS - AVALIAÇÕES ====================
 
-// Validar CPF
-function isValidCPF(cpf) {
-  cpf = cpf.replace(/[^\d]/g, '');
-  if (cpf.length !== 11) return false;
-  if (/^(\d)\1+$/.test(cpf)) return false; // CPFs com todos dígitos iguais
-  
-  let sum = 0;
-  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
-  let d1 = (sum * 10) % 11;
-  if (d1 === 10) d1 = 0;
-  if (d1 !== parseInt(cpf[9])) return false;
-  
-  sum = 0;
-  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
-  let d2 = (sum * 10) % 11;
-  if (d2 === 10) d2 = 0;
-  if (d2 !== parseInt(cpf[10])) return false;
-  
-  return true;
-}
-
 // Listar avaliações (público)
 app.get('/api/reviews', async (req, res) => {
   try {
@@ -678,18 +657,18 @@ app.get('/api/reviews', async (req, res) => {
   }
 });
 
-// Verificar se CPF já avaliou (retorna a avaliação se existir)
-app.get('/api/reviews/check/:cpf', async (req, res) => {
+// Verificar se telefone já avaliou (retorna a avaliação se existir)
+app.get('/api/reviews/check/:phone', async (req, res) => {
   try {
-    const cpf = req.params.cpf.replace(/[^\d]/g, '');
+    const phone = req.params.phone.replace(/\D/g, '');
     
-    if (!isValidCPF(cpf)) {
-      return res.status(400).json({ error: 'CPF inválido' });
+    if (phone.length < 10 || phone.length > 11) {
+      return res.status(400).json({ error: 'Telefone inválido' });
     }
     
     const result = await pool.query(
-      'SELECT * FROM reviews WHERE client_cpf = $1',
-      [cpf]
+      'SELECT * FROM reviews WHERE client_phone = $1',
+      [phone]
     );
     
     if (result.rows.length > 0) {
@@ -702,30 +681,30 @@ app.get('/api/reviews/check/:cpf', async (req, res) => {
   }
 });
 
-// Criar avaliação (público) - 1 por CPF
+// Criar avaliação (público) - 1 por telefone
 app.post('/api/reviews', async (req, res) => {
   try {
-    const { client_name, client_cpf, rating, comment } = req.body;
+    const { client_name, client_phone, rating, comment } = req.body;
     
-    if (!client_name || !client_cpf || !rating || rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Nome, CPF e avaliação são obrigatórios' });
+    if (!client_name || !client_phone || !rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Nome, telefone e avaliação são obrigatórios' });
     }
     
-    const cpf = client_cpf.replace(/[^\d]/g, '');
+    const phone = client_phone.replace(/\D/g, '');
     
-    if (!isValidCPF(cpf)) {
-      return res.status(400).json({ error: 'CPF inválido' });
+    if (phone.length < 10 || phone.length > 11) {
+      return res.status(400).json({ error: 'Telefone inválido' });
     }
     
-    // Verificar se já existe avaliação desse CPF
-    const existing = await pool.query('SELECT id FROM reviews WHERE client_cpf = $1', [cpf]);
+    // Verificar se já existe avaliação desse telefone
+    const existing = await pool.query('SELECT id FROM reviews WHERE client_phone = $1', [phone]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ error: 'Você já fez uma avaliação. Use a opção de editar.' });
     }
     
     const result = await pool.query(
-      'INSERT INTO reviews (client_name, client_cpf, rating, comment) VALUES ($1, $2, $3, $4) RETURNING *',
-      [client_name, cpf, rating, comment || '']
+      'INSERT INTO reviews (client_name, client_phone, rating, comment) VALUES ($1, $2, $3, $4) RETURNING *',
+      [client_name, phone, rating, comment || '']
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -734,18 +713,18 @@ app.post('/api/reviews', async (req, res) => {
 });
 
 // Editar avaliação existente
-app.put('/api/reviews/:cpf', async (req, res) => {
+app.put('/api/reviews/:phone', async (req, res) => {
   try {
-    const cpf = req.params.cpf.replace(/[^\d]/g, '');
+    const phone = req.params.phone.replace(/\D/g, '');
     const { client_name, rating, comment } = req.body;
     
-    if (!isValidCPF(cpf)) {
-      return res.status(400).json({ error: 'CPF inválido' });
+    if (phone.length < 10 || phone.length > 11) {
+      return res.status(400).json({ error: 'Telefone inválido' });
     }
     
     const result = await pool.query(
-      'UPDATE reviews SET client_name = $1, rating = $2, comment = $3, created_at = CURRENT_TIMESTAMP WHERE client_cpf = $4 RETURNING *',
-      [client_name, rating, comment || '', cpf]
+      'UPDATE reviews SET client_name = $1, rating = $2, comment = $3, created_at = CURRENT_TIMESTAMP WHERE client_phone = $4 RETURNING *',
+      [client_name, rating, comment || '', phone]
     );
     
     if (result.rows.length === 0) {
