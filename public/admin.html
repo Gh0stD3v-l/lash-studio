@@ -819,6 +819,11 @@
         
         // ===== WHATSAPP =====
         function sendWhatsApp(phone, msg) {
+            // Verificar se telefone está mascarado
+            if (!phone || phone.includes('*')) {
+                alert('🔒 Revele os dados primeiro para usar o WhatsApp!\n\nClique em "Revelar Dados" no menu lateral.');
+                return;
+            }
             let p = phone.replace(/\D/g, '');
             if (p.length <= 11) p = '55' + p;
             window.open(`https://wa.me/${p}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -914,20 +919,18 @@
         // ===== RENDERS =====
         function renderClients() {
             const search = document.getElementById('clientSearch')?.value.toLowerCase() || '';
-            const filtered = clients.filter(c => c.name.toLowerCase().includes(search) || c.phone?.includes(search) || c.phone_real?.includes(search));
+            const filtered = clients.filter(c => c.name.toLowerCase().includes(search) || c.phone?.includes(search));
             document.getElementById('clientGrid').innerHTML = filtered.length ? filtered.map(c => {
                 const birthday = c.birthdate ? formatDate(c.birthdate) : null;
-                const phoneDisplay = c.phone || '-';
-                const phoneReal = c.phone_real || c.phone || '';
                 return `
                 <div class="client-card">
                     <div class="client-avatar" onclick="openClientProfile(${c.id})" style="cursor:pointer">${c.name.charAt(0)}</div>
                     <div class="client-name" onclick="openClientProfile(${c.id})" style="cursor:pointer">${c.name}</div>
-                    <div class="client-info">📞 ${phoneDisplay}</div>
+                    <div class="client-info">📞 ${c.phone || '-'}</div>
                     ${birthday ? `<div class="client-info">🎂 ${birthday}</div>` : ''}
                     <div class="client-actions">
                         <button class="btn btn-secondary btn-small" onclick="openClientProfile(${c.id})">👁️ Ver</button>
-                        <button class="btn btn-whatsapp btn-small" onclick="sendWhatsApp('${phoneReal}', '')">📱 Zap</button>
+                        <button class="btn btn-whatsapp btn-small" onclick="sendWhatsApp('${c.phone || ''}', '')">📱 Zap</button>
                         <button class="btn btn-danger btn-small" onclick="deleteClient(${c.id})">🗑️</button>
                     </div>
                 </div>
@@ -954,14 +957,10 @@
             const pending = onlineAppts.filter(a => a.status === 'pendente');
             const confirmed = onlineAppts.filter(a => a.status === 'confirmado');
             
-            document.getElementById('pendingTable').innerHTML = pending.length ? pending.map(a => {
-                const phoneDisplay = a.client_phone || '-';
-                const phoneReal = a.client_phone_real || a.client_phone || '';
-                const cpfDisplay = a.client_cpf || '-';
-                return `
+            document.getElementById('pendingTable').innerHTML = pending.length ? pending.map(a => `
                 <tr>
-                    <td><strong>${a.client_name}</strong><br><small>${cpfDisplay}</small></td>
-                    <td>${phoneDisplay}</td>
+                    <td><strong>${a.client_name}</strong><br><small>${a.client_cpf || '-'}</small></td>
+                    <td>${a.client_phone || '-'}</td>
                     <td>${a.service_name || '-'}</td>
                     <td>${formatDate(a.appointment_date)}</td>
                     <td>${a.appointment_time?.slice(0,5)}</td>
@@ -969,31 +968,28 @@
                         <div class="action-btns">
                             <button class="action-btn confirm" onclick="confirmAppt(${a.id})" title="Confirmar">✅</button>
                             <button class="action-btn cancel" onclick="cancelAppt(${a.id})" title="Cancelar">❌</button>
-                            <button class="action-btn whatsapp" onclick="sendWhatsApp('${phoneReal}', '')" title="WhatsApp">📱</button>
+                            <button class="action-btn whatsapp" onclick="sendWhatsApp('${a.client_phone || ''}', '')" title="WhatsApp">📱</button>
                         </div>
                     </td>
                 </tr>
-            `}).join('') : '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999">Nenhum pendente</td></tr>';
+            `).join('') : '<tr><td colspan="6" style="text-align:center;padding:30px;color:#999">Nenhum pendente</td></tr>';
             
-            document.getElementById('confirmedTable').innerHTML = confirmed.length ? confirmed.map(a => {
-                const phoneDisplay = a.client_phone || '-';
-                const phoneReal = a.client_phone_real || a.client_phone || '';
-                return `
+            document.getElementById('confirmedTable').innerHTML = confirmed.length ? confirmed.map(a => `
                 <tr>
                     <td>${a.client_name}</td>
-                    <td>${phoneDisplay}</td>
+                    <td>${a.client_phone || '-'}</td>
                     <td>${a.service_name || '-'}</td>
                     <td>${formatDate(a.appointment_date)}</td>
                     <td>${a.appointment_time?.slice(0,5)}</td>
                     <td><span class="badge badge-success">Confirmado</span></td>
                     <td>
                         <div class="action-btns">
-                            <button class="action-btn whatsapp" onclick="sendReminder(${JSON.stringify({...a, client_phone: phoneReal}).replace(/"/g, '&quot;')})" title="Lembrete">🔔</button>
+                            <button class="action-btn whatsapp" onclick="sendReminder(${JSON.stringify(a).replace(/"/g, '&quot;')})" title="Lembrete">🔔</button>
                             <button class="action-btn cancel" onclick="cancelAppt(${a.id})" title="Cancelar">❌</button>
                         </div>
                     </td>
                 </tr>
-            `}).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999">Nenhum confirmado</td></tr>';
+            `).join('') : '<tr><td colspan="7" style="text-align:center;padding:30px;color:#999">Nenhum confirmado</td></tr>';
         }
         
         function renderReminders(reminders) {
@@ -1012,10 +1008,7 @@
                 document.getElementById('reminderAlert').innerHTML = `
                     <div><h4>🔔 Enviar Lembretes (${reminders.length})</h4><p>Clientes com atendimento amanhã</p></div>
                     <div style="display:flex;gap:10px;flex-wrap:wrap">
-                        ${reminders.map(r => {
-                            const phoneReal = r.client_phone_real || r.client_phone || '';
-                            return `<button class="btn btn-small" style="background:white;color:var(--warning)" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify({...r, client_phone: phoneReal}).replace(/"/g, '&quot;')})">${r.client_name.split(' ')[0]} ${r.appointment_time?.slice(0,5)}</button>`;
-                        }).join('')}
+                        ${reminders.map(r => `<button class="btn btn-small" style="background:white;color:var(--warning)" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify(r).replace(/"/g, '&quot;')})">${r.client_name.split(' ')[0]} ${r.appointment_time?.slice(0,5)}</button>`).join('')}
                     </div>
                 `;
                 document.getElementById('reminderSection').innerHTML = document.getElementById('reminderAlert').innerHTML;
@@ -1028,15 +1021,12 @@
             const remindersGrid = document.getElementById('remindersGrid');
             if (remindersGrid) {
                 if (reminders.length > 0) {
-                    remindersGrid.innerHTML = reminders.map(r => {
-                        const phoneDisplay = r.client_phone || '-';
-                        const phoneReal = r.client_phone_real || r.client_phone || '';
-                        return `
+                    remindersGrid.innerHTML = reminders.map(r => `
                         <div class="reminder-card">
                             <div style="display:flex;justify-content:space-between;align-items:flex-start">
                                 <div>
                                     <h4 style="font-size:1.1rem;margin-bottom:5px">${r.client_name}</h4>
-                                    <p style="color:var(--charcoal-light);font-size:0.85rem">📞 ${phoneDisplay}</p>
+                                    <p style="color:var(--charcoal-light);font-size:0.85rem">📞 ${r.client_phone || '-'}</p>
                                     <p style="color:var(--charcoal-light);font-size:0.85rem">💅 ${r.service_name || 'Serviço'}</p>
                                 </div>
                                 <div style="text-align:right">
@@ -1045,12 +1035,12 @@
                                 </div>
                             </div>
                             <div style="margin-top:15px;display:flex;gap:10px">
-                                <button class="btn btn-whatsapp" style="flex:1" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify({...r, client_phone: phoneReal}).replace(/"/g, '&quot;')})">
+                                <button class="btn btn-whatsapp" style="flex:1" onclick="sendReminderAndMark(${r.id}, ${JSON.stringify(r).replace(/"/g, '&quot;')})">
                                     📱 Enviar Lembrete no WhatsApp
                                 </button>
                             </div>
                         </div>
-                    `}).join('');
+                    `).join('');
                 } else {
                     remindersGrid.innerHTML = '<div style="text-align:center;padding:40px;color:#999"><div style="font-size:3rem;margin-bottom:15px">✅</div><h3>Nenhum lembrete pendente!</h3><p>Todos os clientes de amanhã já foram avisados</p></div>';
                 }
@@ -1213,7 +1203,6 @@
                 const birthday = client.birthdate ? formatDate(client.birthdate) : 'Não informado';
                 const createdAt = client.created_at ? formatDate(client.created_at) : '-';
                 const phoneDisplay = client.phone_display || client.phone || '-';
-                const phoneReal = client.phone_real || client.phone || '';
                 const cpfDisplay = client.cpf_display || client.cpf || '-';
                 
                 let historyHtml = '';
@@ -1280,7 +1269,7 @@
                     </div>
                     
                     <div style="margin-top:20px;display:flex;gap:10px">
-                        <button class="btn btn-whatsapp" style="flex:1" onclick="sendWhatsApp('${phoneReal}', '')">📱 WhatsApp</button>
+                        <button class="btn btn-whatsapp" style="flex:1" onclick="sendWhatsApp('${phoneDisplay}', '')">📱 WhatsApp</button>
                         <button class="btn btn-secondary" style="flex:1" onclick="closeModal('clientProfile')">Fechar</button>
                     </div>
                 `;
