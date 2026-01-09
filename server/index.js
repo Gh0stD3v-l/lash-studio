@@ -137,6 +137,37 @@ function shouldReveal(sessionToken) {
   return true;
 }
 
+// Rota segura para obter telefone (WhatsApp) - requer dados revelados
+app.get('/api/admin/get-phone/:type/:id', async (req, res) => {
+  try {
+    const sessionToken = req.query.token;
+    const { type, id } = req.params;
+    
+    // Verificar se tem permissão para ver dados
+    if (!shouldReveal(sessionToken)) {
+      return res.status(403).json({ error: 'Revele os dados primeiro para usar o WhatsApp' });
+    }
+    
+    let phone = null;
+    
+    if (type === 'client') {
+      const result = await pool.query('SELECT phone FROM clients WHERE id = $1', [id]);
+      phone = result.rows[0]?.phone;
+    } else if (type === 'appointment') {
+      const result = await pool.query('SELECT client_phone FROM online_appointments WHERE id = $1', [id]);
+      phone = result.rows[0]?.client_phone;
+    }
+    
+    if (!phone) {
+      return res.status(404).json({ error: 'Telefone não encontrado' });
+    }
+    
+    res.json({ phone });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Banco de dados PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -379,11 +410,12 @@ app.post('/api/appointments', async (req, res) => {
     
     const result = await pool.query(
       `INSERT INTO online_appointments (client_name, client_cpf, client_phone, client_email, service_id, appointment_date, appointment_time)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
       [client_name, '', client_phone, client_email, service_id, appointment_date, appointment_time]
     );
     
-    res.json(result.rows[0]);
+    // Retorna só sucesso, sem dados sensíveis
+    res.json({ success: true, id: result.rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -396,18 +428,33 @@ app.get('/api/admin/online-appointments', async (req, res) => {
     const reveal = shouldReveal(sessionToken);
     
     const result = await pool.query(`
-      SELECT oa.*, s.name as service_name, s.price as service_price
+      SELECT oa.id, oa.client_name, oa.client_email, oa.service_id, 
+             oa.appointment_date, oa.appointment_time, oa.status, 
+             oa.created_at, oa.confirmed_at, oa.cancelled_at, oa.reminder_sent,
+             oa.client_cpf, oa.client_phone,
+             s.name as service_name, s.price as service_price
       FROM online_appointments oa
       LEFT JOIN services s ON oa.service_id = s.id
       ORDER BY oa.appointment_date DESC, oa.appointment_time DESC
     `);
     
-    // Mascarar dados sensíveis se não tiver permissão
+    // Criar objetos SEM dados sensíveis originais
     const data = result.rows.map(row => ({
-      ...row,
+      id: row.id,
+      client_name: row.client_name,
+      client_email: row.client_email,
+      service_id: row.service_id,
+      appointment_date: row.appointment_date,
+      appointment_time: row.appointment_time,
+      status: row.status,
+      created_at: row.created_at,
+      confirmed_at: row.confirmed_at,
+      cancelled_at: row.cancelled_at,
+      reminder_sent: row.reminder_sent,
+      service_name: row.service_name,
+      service_price: row.service_price,
       client_cpf: reveal ? row.client_cpf : mascararCPF(row.client_cpf),
-      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone),
-      client_phone_real: row.client_phone // Sempre envia o real para WhatsApp funcionar
+      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone)
     }));
     
     res.json(data);
@@ -420,10 +467,10 @@ app.get('/api/admin/online-appointments', async (req, res) => {
 app.put('/api/admin/online-appointments/:id/confirm', async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE online_appointments SET status = 'confirmado', confirmed_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+      `UPDATE online_appointments SET status = 'confirmado', confirmed_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status`,
       [req.params.id]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0]?.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -433,10 +480,10 @@ app.put('/api/admin/online-appointments/:id/confirm', async (req, res) => {
 app.put('/api/admin/online-appointments/:id/cancel', async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE online_appointments SET status = 'cancelado', cancelled_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+      `UPDATE online_appointments SET status = 'cancelado', cancelled_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status`,
       [req.params.id]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0]?.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -446,10 +493,10 @@ app.put('/api/admin/online-appointments/:id/cancel', async (req, res) => {
 app.put('/api/admin/online-appointments/:id/reminder-sent', async (req, res) => {
   try {
     const result = await pool.query(
-      `UPDATE online_appointments SET reminder_sent = true WHERE id = $1 RETURNING *`,
+      `UPDATE online_appointments SET reminder_sent = true WHERE id = $1 RETURNING id`,
       [req.params.id]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0]?.id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -466,7 +513,10 @@ app.get('/api/admin/reminders', async (req, res) => {
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
     
     const result = await pool.query(`
-      SELECT oa.*, s.name as service_name
+      SELECT oa.id, oa.client_name, oa.client_email, oa.service_id, 
+             oa.appointment_date, oa.appointment_time, oa.status,
+             oa.client_cpf, oa.client_phone,
+             s.name as service_name
       FROM online_appointments oa
       LEFT JOIN services s ON oa.service_id = s.id
       WHERE oa.appointment_date = $1 
@@ -475,12 +525,18 @@ app.get('/api/admin/reminders', async (req, res) => {
       ORDER BY oa.appointment_time
     `, [tomorrowStr]);
     
-    // Mascarar dados sensíveis se não tiver permissão
+    // Criar objetos SEM dados sensíveis originais
     const data = result.rows.map(row => ({
-      ...row,
+      id: row.id,
+      client_name: row.client_name,
+      client_email: row.client_email,
+      service_id: row.service_id,
+      appointment_date: row.appointment_date,
+      appointment_time: row.appointment_time,
+      status: row.status,
+      service_name: row.service_name,
       client_cpf: reveal ? row.client_cpf : mascararCPF(row.client_cpf),
-      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone),
-      client_phone_real: row.client_phone // Sempre envia o real para WhatsApp funcionar
+      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone)
     }));
     
     res.json(data);
@@ -496,14 +552,18 @@ app.get('/api/admin/clients', async (req, res) => {
     const sessionToken = req.query.token;
     const reveal = shouldReveal(sessionToken);
     
-    const result = await pool.query('SELECT * FROM clients ORDER BY name');
+    const result = await pool.query('SELECT id, name, email, birthdate, notes, created_at, cpf, phone FROM clients ORDER BY name');
     
-    // Mascarar dados sensíveis se não tiver permissão
+    // Criar objetos SEM dados sensíveis originais
     const data = result.rows.map(row => ({
-      ...row,
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      birthdate: row.birthdate,
+      notes: row.notes,
+      created_at: row.created_at,
       cpf: reveal ? row.cpf : mascararCPF(row.cpf),
-      phone: reveal ? row.phone : mascararTelefone(row.phone),
-      phone_real: row.phone // Sempre envia o real para WhatsApp funcionar
+      phone: reveal ? row.phone : mascararTelefone(row.phone)
     }));
     
     res.json(data);
@@ -516,10 +576,10 @@ app.post('/api/admin/clients', async (req, res) => {
   try {
     const { name, phone, cpf, email, birthdate, notes } = req.body;
     const result = await pool.query(
-      'INSERT INTO clients (name, phone, cpf, email, birthdate, notes) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      'INSERT INTO clients (name, phone, cpf, email, birthdate, notes) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name',
       [name, phone, cpf, email, birthdate, notes]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0].id, name: result.rows[0].name });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -541,20 +601,28 @@ app.get('/api/admin/clients/:id/history', async (req, res) => {
     const sessionToken = req.query.token;
     const reveal = shouldReveal(sessionToken);
     
-    // Dados do cliente
-    const clientResult = await pool.query('SELECT * FROM clients WHERE id = $1', [clientId]);
-    const client = clientResult.rows[0];
+    // Dados do cliente - SÓ campos seguros
+    const clientResult = await pool.query(
+      'SELECT id, name, email, birthdate, notes, created_at, cpf, phone FROM clients WHERE id = $1', 
+      [clientId]
+    );
+    const clientRaw = clientResult.rows[0];
     
-    // Mascarar dados sensíveis
-    if (client) {
-      client.cpf_display = reveal ? client.cpf : mascararCPF(client.cpf);
-      client.phone_display = reveal ? client.phone : mascararTelefone(client.phone);
-      client.phone_real = client.phone; // Para WhatsApp
-    }
+    // Criar objeto SEM dados sensíveis originais
+    const client = clientRaw ? {
+      id: clientRaw.id,
+      name: clientRaw.name,
+      email: clientRaw.email,
+      birthdate: clientRaw.birthdate,
+      notes: clientRaw.notes,
+      created_at: clientRaw.created_at,
+      cpf_display: reveal ? clientRaw.cpf : mascararCPF(clientRaw.cpf),
+      phone_display: reveal ? clientRaw.phone : mascararTelefone(clientRaw.phone)
+    } : null;
     
     // Vendas do cliente
     const salesResult = await pool.query(`
-      SELECT sa.*, s.name as service_name
+      SELECT sa.id, sa.value, sa.payment_method, sa.sale_date, s.name as service_name
       FROM sales sa
       LEFT JOIN services s ON sa.service_id = s.id
       WHERE sa.client_id = $1
@@ -563,7 +631,7 @@ app.get('/api/admin/clients/:id/history', async (req, res) => {
     
     // Agendamentos manuais do cliente
     const appointmentsResult = await pool.query(`
-      SELECT a.*, s.name as service_name
+      SELECT a.id, a.appointment_date, a.appointment_time, a.notes, a.status, s.name as service_name
       FROM appointments a
       LEFT JOIN services s ON a.service_id = s.id
       WHERE a.client_id = $1
@@ -597,14 +665,37 @@ app.get('/api/admin/clients/:id/history', async (req, res) => {
 
 app.get('/api/admin/appointments', async (req, res) => {
   try {
+    const sessionToken = req.query.token;
+    const reveal = shouldReveal(sessionToken);
+    
     const result = await pool.query(`
-      SELECT a.*, c.name as client_name, c.phone as client_phone, s.name as service_name
+      SELECT a.id, a.client_id, a.service_id, a.appointment_date, a.appointment_time, 
+             a.notes, a.status, a.created_at,
+             c.name as client_name, c.phone as client_phone, c.cpf as client_cpf, 
+             s.name as service_name
       FROM appointments a
       LEFT JOIN clients c ON a.client_id = c.id
       LEFT JOIN services s ON a.service_id = s.id
       ORDER BY a.appointment_date DESC, a.appointment_time DESC
     `);
-    res.json(result.rows);
+    
+    // Criar objetos SEM dados sensíveis originais
+    const data = result.rows.map(row => ({
+      id: row.id,
+      client_id: row.client_id,
+      service_id: row.service_id,
+      appointment_date: row.appointment_date,
+      appointment_time: row.appointment_time,
+      notes: row.notes,
+      status: row.status,
+      created_at: row.created_at,
+      client_name: row.client_name,
+      service_name: row.service_name,
+      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone),
+      client_cpf: reveal ? row.client_cpf : mascararCPF(row.client_cpf)
+    }));
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -614,10 +705,10 @@ app.post('/api/admin/appointments', async (req, res) => {
   try {
     const { client_id, service_id, appointment_date, appointment_time, notes } = req.body;
     const result = await pool.query(
-      'INSERT INTO appointments (client_id, service_id, appointment_date, appointment_time, notes) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      'INSERT INTO appointments (client_id, service_id, appointment_date, appointment_time, notes) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [client_id, service_id, appointment_date, appointment_time, notes]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -653,10 +744,10 @@ app.post('/api/admin/sales', async (req, res) => {
   try {
     const { client_id, service_id, value, payment_method, sale_date } = req.body;
     const result = await pool.query(
-      'INSERT INTO sales (client_id, service_id, value, payment_method, sale_date) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      'INSERT INTO sales (client_id, service_id, value, payment_method, sale_date) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [client_id, service_id, value, payment_method, sale_date || new Date().toISOString().split('T')[0]]
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, id: result.rows[0].id });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -788,11 +879,12 @@ app.get('/api/reviews/check/:phone', async (req, res) => {
     }
     
     const result = await pool.query(
-      'SELECT * FROM reviews WHERE client_phone = $1',
+      'SELECT id, client_name, rating, comment, created_at FROM reviews WHERE client_phone = $1',
       [phone]
     );
     
     if (result.rows.length > 0) {
+      // Retorna sem o telefone!
       res.json({ hasReview: true, review: result.rows[0] });
     } else {
       res.json({ hasReview: false });
@@ -824,10 +916,10 @@ app.post('/api/reviews', async (req, res) => {
     }
     
     const result = await pool.query(
-      'INSERT INTO reviews (client_name, client_phone, rating, comment) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO reviews (client_name, client_phone, rating, comment) VALUES ($1, $2, $3, $4) RETURNING id, client_name, rating, comment, created_at',
       [client_name, phone, rating, comment || '']
     );
-    res.json(result.rows[0]);
+    res.json({ success: true, review: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -844,7 +936,7 @@ app.put('/api/reviews/:phone', async (req, res) => {
     }
     
     const result = await pool.query(
-      'UPDATE reviews SET client_name = $1, rating = $2, comment = $3, created_at = CURRENT_TIMESTAMP WHERE client_phone = $4 RETURNING *',
+      'UPDATE reviews SET client_name = $1, rating = $2, comment = $3, created_at = CURRENT_TIMESTAMP WHERE client_phone = $4 RETURNING id, client_name, rating, comment, created_at',
       [client_name, rating, comment || '', phone]
     );
     
@@ -852,7 +944,7 @@ app.put('/api/reviews/:phone', async (req, res) => {
       return res.status(404).json({ error: 'Avaliação não encontrada' });
     }
     
-    res.json(result.rows[0]);
+    res.json({ success: true, review: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
