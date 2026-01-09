@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 3000;
 // Senha do admin (configurar no Render)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'lash123';
 
-// Senha para revelar dados sensíveis (configurar no Render)
-const REVEAL_PASSWORD = process.env.REVEAL_PASSWORD || 'AnaClaraLash@2026';
+// Senha para revelar dados sensíveis (configurar no Render como REVEAL_PASSWORD)
+const REVEAL_PASSWORD = process.env.REVEAL_PASSWORD;
 
 // Tokens de sessão ativos (em memória)
 const activeSessions = new Map();
