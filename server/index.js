@@ -347,6 +347,22 @@ app.delete('/api/admin/services/:id', async (req, res) => {
 
 // ==================== ROTAS - AGENDAMENTOS ONLINE ====================
 
+// Função para obter data/hora no horário de Brasília (UTC-3)
+function getBrasiliaTime() {
+  const now = new Date();
+  // Ajusta para UTC-3 (Brasília)
+  const brasiliaOffset = -3 * 60; // -3 horas em minutos
+  const utcOffset = now.getTimezoneOffset(); // offset do servidor em minutos
+  const diff = brasiliaOffset - (-utcOffset); // diferença em minutos
+  now.setMinutes(now.getMinutes() + diff);
+  return now;
+}
+
+function getBrasiliaDate() {
+  const brasilia = getBrasiliaTime();
+  return brasilia.toISOString().split('T')[0];
+}
+
 // Verificar horários disponíveis
 app.get('/api/available-slots', async (req, res) => {
   try {
@@ -372,12 +388,12 @@ app.get('/api/available-slots', async (req, res) => {
     const bookedTimes = booked.rows.map(r => r.appointment_time.slice(0, 5));
     let available = allSlots.filter(slot => !bookedTimes.includes(slot));
     
-    // Se for hoje, filtrar horários que já passaram
-    const today = new Date().toISOString().split('T')[0];
+    // Se for hoje (horário de Brasília), filtrar horários que já passaram
+    const today = getBrasiliaDate();
     if (date === today) {
-      const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
+      const brasilia = getBrasiliaTime();
+      const currentHour = brasilia.getHours();
+      const currentMinute = brasilia.getMinutes();
       
       available = available.filter(slot => {
         const [h, m] = slot.split(':').map(Number);
@@ -508,9 +524,10 @@ app.get('/api/admin/reminders', async (req, res) => {
     const sessionToken = req.query.token;
     const reveal = shouldReveal(sessionToken);
     
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    // Amanhã no horário de Brasília
+    const brasilia = getBrasiliaTime();
+    brasilia.setDate(brasilia.getDate() + 1);
+    const tomorrowStr = brasilia.toISOString().split('T')[0];
     
     const result = await pool.query(`
       SELECT oa.id, oa.client_name, oa.client_email, oa.service_id, 
@@ -812,8 +829,10 @@ app.delete('/api/admin/products/:id', async (req, res) => {
 
 app.get('/api/admin/stats', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    // Usar horário de Brasília
+    const brasilia = getBrasiliaTime();
+    const today = brasilia.toISOString().split('T')[0];
+    const firstDayOfMonth = new Date(brasilia.getFullYear(), brasilia.getMonth(), 1).toISOString().split('T')[0];
     
     // Agendamentos de hoje
     const todayAppts = await pool.query(
@@ -963,7 +982,7 @@ app.delete('/api/admin/reviews/:id', async (req, res) => {
 // Horários disponíveis hoje (público)
 app.get('/api/today-slots', async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBrasiliaDate();
     
     // ===== 🕐 HORÁRIOS DE FUNCIONAMENTO =====
     const allSlots = ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
@@ -982,10 +1001,10 @@ app.get('/api/today-slots', async (req, res) => {
     const bookedTimes = booked.rows.map(r => r.appointment_time.slice(0, 5));
     const available = allSlots.filter(slot => !bookedTimes.includes(slot));
     
-    // Filtrar horários que já passaram
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    // Filtrar horários que já passaram (horário de Brasília)
+    const brasilia = getBrasiliaTime();
+    const currentHour = brasilia.getHours();
+    const currentMinute = brasilia.getMinutes();
     
     const stillAvailable = available.filter(slot => {
       const [h, m] = slot.split(':').map(Number);
