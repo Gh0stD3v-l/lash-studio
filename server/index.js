@@ -11,8 +11,29 @@ const PORT = process.env.PORT || 3000;
 // Senha do admin (configurar no Render)
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'lash123';
 
+// Senha para revelar dados sensíveis (configurar no Render)
+const REVEAL_PASSWORD = process.env.REVEAL_PASSWORD || 'AnaClaraLash@2026';
+
 // Tokens de sessão ativos (em memória)
 const activeSessions = new Map();
+
+// Tokens de revelação de dados (em memória)
+const revealTokens = new Map();
+
+// Funções de mascaramento
+function mascararCPF(cpf) {
+  if (!cpf) return null;
+  const clean = cpf.replace(/\D/g, '');
+  if (clean.length < 6) return '***.***.***-**';
+  return '***.' + clean.slice(3, 6) + '.***-**';
+}
+
+function mascararTelefone(tel) {
+  if (!tel) return null;
+  const clean = tel.replace(/\D/g, '');
+  if (clean.length < 4) return '(**) *****-****';
+  return '(**) *****-' + clean.slice(-4);
+}
 
 // Middleware
 app.use(cors());
@@ -58,8 +79,63 @@ app.post('/api/auth/verify', (req, res) => {
 app.post('/api/auth/logout', (req, res) => {
   const { token } = req.body;
   activeSessions.delete(token);
+  revealTokens.delete(token); // Também remove token de revelação
   res.json({ success: true });
 });
+
+// ==================== REVELAÇÃO DE DADOS SENSÍVEIS ====================
+
+// Verificar senha e liberar revelação
+app.post('/api/admin/reveal-data', (req, res) => {
+  const { password, sessionToken } = req.body;
+  
+  // Verificar se está logado
+  if (!sessionToken || !activeSessions.has(sessionToken)) {
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+  
+  if (password === REVEAL_PASSWORD) {
+    // Adicionar token à lista de revelação (válido por 30 minutos)
+    revealTokens.set(sessionToken, { createdAt: Date.now() });
+    res.json({ success: true, message: 'Dados revelados' });
+  } else {
+    res.status(401).json({ error: 'Senha incorreta' });
+  }
+});
+
+// Ocultar dados novamente
+app.post('/api/admin/hide-data', (req, res) => {
+  const { sessionToken } = req.body;
+  revealTokens.delete(sessionToken);
+  res.json({ success: true, message: 'Dados ocultados' });
+});
+
+// Verificar se dados estão revelados
+app.post('/api/admin/check-reveal', (req, res) => {
+  const { sessionToken } = req.body;
+  
+  if (sessionToken && revealTokens.has(sessionToken)) {
+    // Verificar se não expirou (30 minutos)
+    const data = revealTokens.get(sessionToken);
+    if (Date.now() - data.createdAt < 30 * 60 * 1000) {
+      return res.json({ revealed: true });
+    } else {
+      revealTokens.delete(sessionToken);
+    }
+  }
+  res.json({ revealed: false });
+});
+
+// Função helper para verificar se deve revelar
+function shouldReveal(sessionToken) {
+  if (!sessionToken || !revealTokens.has(sessionToken)) return false;
+  const data = revealTokens.get(sessionToken);
+  if (Date.now() - data.createdAt > 30 * 60 * 1000) {
+    revealTokens.delete(sessionToken);
+    return false;
+  }
+  return true;
+}
 
 // Banco de dados PostgreSQL
 const pool = new Pool({
@@ -316,13 +392,25 @@ app.post('/api/appointments', async (req, res) => {
 // Listar agendamentos online (admin)
 app.get('/api/admin/online-appointments', async (req, res) => {
   try {
+    const sessionToken = req.query.token;
+    const reveal = shouldReveal(sessionToken);
+    
     const result = await pool.query(`
       SELECT oa.*, s.name as service_name, s.price as service_price
       FROM online_appointments oa
       LEFT JOIN services s ON oa.service_id = s.id
       ORDER BY oa.appointment_date DESC, oa.appointment_time DESC
     `);
-    res.json(result.rows);
+    
+    // Mascarar dados sensíveis se não tiver permissão
+    const data = result.rows.map(row => ({
+      ...row,
+      client_cpf: reveal ? row.client_cpf : mascararCPF(row.client_cpf),
+      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone),
+      client_phone_real: row.client_phone // Sempre envia o real para WhatsApp funcionar
+    }));
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -370,6 +458,9 @@ app.put('/api/admin/online-appointments/:id/reminder-sent', async (req, res) => 
 // Buscar agendamentos que precisam de lembrete (amanhã)
 app.get('/api/admin/reminders', async (req, res) => {
   try {
+    const sessionToken = req.query.token;
+    const reveal = shouldReveal(sessionToken);
+    
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
@@ -384,7 +475,15 @@ app.get('/api/admin/reminders', async (req, res) => {
       ORDER BY oa.appointment_time
     `, [tomorrowStr]);
     
-    res.json(result.rows);
+    // Mascarar dados sensíveis se não tiver permissão
+    const data = result.rows.map(row => ({
+      ...row,
+      client_cpf: reveal ? row.client_cpf : mascararCPF(row.client_cpf),
+      client_phone: reveal ? row.client_phone : mascararTelefone(row.client_phone),
+      client_phone_real: row.client_phone // Sempre envia o real para WhatsApp funcionar
+    }));
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -394,8 +493,20 @@ app.get('/api/admin/reminders', async (req, res) => {
 
 app.get('/api/admin/clients', async (req, res) => {
   try {
+    const sessionToken = req.query.token;
+    const reveal = shouldReveal(sessionToken);
+    
     const result = await pool.query('SELECT * FROM clients ORDER BY name');
-    res.json(result.rows);
+    
+    // Mascarar dados sensíveis se não tiver permissão
+    const data = result.rows.map(row => ({
+      ...row,
+      cpf: reveal ? row.cpf : mascararCPF(row.cpf),
+      phone: reveal ? row.phone : mascararTelefone(row.phone),
+      phone_real: row.phone // Sempre envia o real para WhatsApp funcionar
+    }));
+    
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -427,9 +538,19 @@ app.delete('/api/admin/clients/:id', async (req, res) => {
 app.get('/api/admin/clients/:id/history', async (req, res) => {
   try {
     const clientId = req.params.id;
+    const sessionToken = req.query.token;
+    const reveal = shouldReveal(sessionToken);
     
     // Dados do cliente
-    const client = await pool.query('SELECT * FROM clients WHERE id = $1', [clientId]);
+    const clientResult = await pool.query('SELECT * FROM clients WHERE id = $1', [clientId]);
+    const client = clientResult.rows[0];
+    
+    // Mascarar dados sensíveis
+    if (client) {
+      client.cpf_display = reveal ? client.cpf : mascararCPF(client.cpf);
+      client.phone_display = reveal ? client.phone : mascararTelefone(client.phone);
+      client.phone_real = client.phone; // Para WhatsApp
+    }
     
     // Vendas do cliente
     const salesResult = await pool.query(`
@@ -461,7 +582,7 @@ app.get('/api/admin/clients/:id/history', async (req, res) => {
     );
     
     res.json({
-      client: client.rows[0],
+      client: client,
       sales: salesResult.rows,
       appointments: appointmentsResult.rows,
       totalSpent: parseFloat(totalSpent.rows[0].total),
