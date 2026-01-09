@@ -543,17 +543,17 @@
                 <div class="review-form">
                     <h4>💬 Deixe sua Avaliação</h4>
                     
-                    <!-- Passo 1: Verificar CPF -->
+                    <!-- Passo 1: Verificar WhatsApp -->
                     <div id="reviewStep1">
                         <p style="font-size:0.85rem;color:var(--charcoal-light);margin-bottom:15px">
-                            📋 Digite seu CPF para avaliar ou editar sua avaliação
+                            📱 Digite seu WhatsApp para avaliar ou editar sua avaliação
                         </p>
                         <div class="form-group">
-                            <label class="form-label">Seu CPF *</label>
-                            <input type="text" class="form-input" id="reviewCpf" placeholder="000.000.000-00" maxlength="14">
+                            <label class="form-label">Seu WhatsApp *</label>
+                            <input type="tel" class="form-input" id="reviewPhone" placeholder="(00) 00000-0000" maxlength="15">
                         </div>
-                        <div id="cpfError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;display:none"></div>
-                        <button class="btn btn-primary" onclick="checkReviewCpf()">Verificar CPF →</button>
+                        <div id="phoneError" style="color:var(--danger);font-size:0.85rem;margin-bottom:10px;display:none"></div>
+                        <button class="btn btn-primary" onclick="checkReviewPhone()">Verificar →</button>
                     </div>
                     
                     <!-- Passo 2: Formulário -->
@@ -606,15 +606,9 @@
                         <label class="form-label">Nome Completo *</label>
                         <input type="text" class="form-input" id="clientName" required placeholder="Digite seu nome">
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">CPF *</label>
-                            <input type="text" class="form-input" id="clientCpf" required placeholder="000.000.000-00" maxlength="14">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">WhatsApp *</label>
-                            <input type="tel" class="form-input" id="clientPhone" required placeholder="(00) 00000-0000" maxlength="15">
-                        </div>
+                    <div class="form-group">
+                        <label class="form-label">WhatsApp *</label>
+                        <input type="tel" class="form-input" id="clientPhone" required placeholder="(00) 00000-0000" maxlength="15">
                     </div>
                     <div class="form-group">
                         <label class="form-label">E-mail (opcional)</label>
@@ -707,7 +701,7 @@
         let currentMonth = new Date();
         
         // Dados do cliente
-        const clientData = { name: '', cpf: '', phone: '', email: '' };
+        const clientData = { name: '', phone: '', email: '' };
         let selectedRating = 0;
         let reviews = [];
         
@@ -845,27 +839,27 @@
         
         // Variável para controlar modo edição
         let reviewMode = 'create'; // 'create' ou 'edit'
-        let reviewCpfSaved = '';
+        let reviewPhoneSaved = '';
         
-        // Formatar CPF
-        function formatReviewCpf() {
-            const input = document.getElementById('reviewCpf');
+        // Formatar telefone da avaliação
+        function formatReviewPhone() {
+            const input = document.getElementById('reviewPhone');
             let v = input.value.replace(/\D/g, '');
-            if (v.length > 3) v = v.slice(0,3) + '.' + v.slice(3);
-            if (v.length > 7) v = v.slice(0,7) + '.' + v.slice(7);
-            if (v.length > 11) v = v.slice(0,11) + '-' + v.slice(11,13);
+            if (v.length > 11) v = v.slice(0, 11);
+            v = v.replace(/(\d{2})(\d)/, '($1) $2');
+            v = v.replace(/(\d{5})(\d)/, '$1-$2');
             input.value = v;
         }
-        document.getElementById('reviewCpf')?.addEventListener('input', formatReviewCpf);
+        document.getElementById('reviewPhone')?.addEventListener('input', formatReviewPhone);
         
-        // Verificar CPF
-        async function checkReviewCpf() {
-            const cpfInput = document.getElementById('reviewCpf');
-            const cpf = cpfInput.value.replace(/\D/g, '');
-            const errorDiv = document.getElementById('cpfError');
+        // Verificar WhatsApp
+        async function checkReviewPhone() {
+            const phoneInput = document.getElementById('reviewPhone');
+            const phone = phoneInput.value.replace(/\D/g, '');
+            const errorDiv = document.getElementById('phoneError');
             
-            if (cpf.length !== 11) {
-                errorDiv.textContent = 'CPF deve ter 11 dígitos';
+            if (phone.length < 10 || phone.length > 11) {
+                errorDiv.textContent = 'WhatsApp deve ter 10 ou 11 dígitos';
                 errorDiv.style.display = 'block';
                 return;
             }
@@ -873,17 +867,11 @@
             try {
                 document.getElementById('loading').style.display = 'flex';
                 
-                const res = await fetch(API + `/api/reviews/check/${cpf}`);
+                const res = await fetch(API + `/api/reviews/check/${phone}`);
                 const data = await res.json();
                 
-                if (res.status === 400) {
-                    errorDiv.textContent = data.error || 'CPF inválido';
-                    errorDiv.style.display = 'block';
-                    return;
-                }
-                
                 errorDiv.style.display = 'none';
-                reviewCpfSaved = cpf;
+                reviewPhoneSaved = phone;
                 
                 // Mostrar passo 2
                 document.getElementById('reviewStep1').style.display = 'none';
@@ -909,13 +897,13 @@
                     // Modo criação
                     reviewMode = 'create';
                     document.getElementById('reviewModeMsg').innerHTML = `
-                        <div style="color:var(--success)">✅ CPF verificado!</div>
+                        <div style="color:var(--success)">✅ WhatsApp verificado!</div>
                         <div style="font-size:0.85rem;color:var(--charcoal-light);margin-top:5px">Preencha sua avaliação</div>
                     `;
                     document.getElementById('submitReviewBtn').textContent = 'Enviar ⭐';
                 }
             } catch (err) {
-                errorDiv.textContent = 'Erro ao verificar CPF. Tente novamente.';
+                errorDiv.textContent = 'Erro ao verificar. Tente novamente.';
                 errorDiv.style.display = 'block';
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -931,7 +919,7 @@
             selectedRating = 0;
             document.querySelectorAll('.star-btn').forEach(b => b.classList.remove('active'));
             reviewMode = 'create';
-            reviewCpfSaved = '';
+            reviewPhoneSaved = '';
         }
         
         async function submitReview() {
@@ -951,7 +939,7 @@
                 document.getElementById('loading').style.display = 'flex';
                 
                 const url = reviewMode === 'edit' 
-                    ? API + `/api/reviews/${reviewCpfSaved}`
+                    ? API + `/api/reviews/${reviewPhoneSaved}`
                     : API + '/api/reviews';
                 
                 const method = reviewMode === 'edit' ? 'PUT' : 'POST';
@@ -961,7 +949,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         client_name: name,
-                        client_cpf: reviewCpfSaved,
+                        client_phone: reviewPhoneSaved,
                         rating: selectedRating,
                         comment: comment
                     })
@@ -972,7 +960,7 @@
                 if (res.ok) {
                     alert(reviewMode === 'edit' ? 'Avaliação atualizada! 💕' : 'Obrigada pela sua avaliação! 💕');
                     resetReviewForm();
-                    document.getElementById('reviewCpf').value = '';
+                    document.getElementById('reviewPhone').value = '';
                     await loadReviews();
                 } else {
                     alert(data.error || 'Erro ao enviar avaliação. Tente novamente.');
@@ -1125,22 +1113,12 @@
         document.getElementById('personalForm').addEventListener('submit', function(e) {
             e.preventDefault();
             clientData.name = document.getElementById('clientName').value;
-            clientData.cpf = document.getElementById('clientCpf').value;
             clientData.phone = document.getElementById('clientPhone').value;
             clientData.email = document.getElementById('clientEmail').value;
             goToStep(2);
         });
         
         // ===== MÁSCARAS =====
-        document.getElementById('clientCpf').addEventListener('input', function(e) {
-            let v = e.target.value.replace(/\D/g, '');
-            if (v.length > 11) v = v.slice(0, 11);
-            v = v.replace(/(\d{3})(\d)/, '$1.$2');
-            v = v.replace(/(\d{3})(\d)/, '$1.$2');
-            v = v.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-            e.target.value = v;
-        });
-        
         document.getElementById('clientPhone').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 11) v = v.slice(0, 11);
@@ -1191,7 +1169,6 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         client_name: clientData.name,
-                        client_cpf: clientData.cpf,
                         client_phone: clientData.phone.replace(/\D/g, ''),
                         client_email: clientData.email,
                         service_id: selectedService.id,
